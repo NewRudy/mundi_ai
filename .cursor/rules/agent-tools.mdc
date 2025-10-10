@@ -1,0 +1,29 @@
+---
+description: 智能体工具注册与编排（LLM 调用 QGIS/PostGIS/KG/样式）
+---
+# 智能体工具注册与编排规则
+
+本规则用于在对话流中为 LLM 注册和编排工具，统一安全约束与输出到地图的流程。
+
+## 注册位置
+- 在 [`src/dependencies/pydantic_tools.py`](mdc:src/dependencies/pydantic_tools.py) 定义/注册工具（函数、参数模型、Mundi 环境模型）
+- `message_routes.process_chat_interaction_task` 会自动加载注册的工具并交给 OpenAI `chat.completions` 调用
+
+## 建议工具集（灾害应急）
+- `kg_query`: 按模板参数查询时空KG，返回结构化结果（分页）
+- `find_resources`: 基于区域/灾种/时间检索可用资源与关键设施
+- `plan_evacuation`: 结合道路/障碍/人口密度生成疏散方案（可调用 QGIS 网络分析）
+- `simulate_impact`: 触发QGIS算法链（洪涝/滑坡/风暴潮等），生成新图层并自动上图
+- `set_layer_style`: 复用已有样式接口，为新图层生成可读性强的可视化
+
+## 安全与约束
+- 严禁将用户自由文本直接拼接为 SQL/Cypher；所有查询走参数化模板
+- PostGIS 查询必须 `LIMIT < 1000` 且只读（参考现有实现）
+- QGIS 任务强制超时与错误处理，结果写 S3 后再挂载为图层
+
+## 输出到地图
+- 工具产出尽量转换为：
+  1) 新图层（`internal_upload_layer` 或 PostGIS 源）
+  2) 自动样式（`set_layer_style`）
+  3) 返回可读的摘要（用于会话框显示）
+

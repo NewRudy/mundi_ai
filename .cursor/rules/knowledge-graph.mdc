@@ -1,0 +1,41 @@
+---
+description: 知识图谱集成规则（灾害时空KG/数据摄取/地图联动）
+---
+# 知识图谱（KG）集成规则
+
+本规则约定如何在 mundi.ai 中集成灾害时空知识图谱，并与地图渲染、智能体工具联动。
+
+## 既有基础（来自用户）
+- 已具备“基于配置文件与空间数据库，并通过空间分析生成时空知识图谱”的能力。
+- 本规则默认复用该能力作为 KG 的主数据源；可通过配置指向现有空间数据库与生成流程。
+
+## 选型与连接
+- 优先图数据库（Neo4j/Memgraph）。连接配置通过环境变量：
+  - `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`
+- 客户端封装放置：[`src/dependencies/knowledge_graph.py`](mdc:src/dependencies/knowledge_graph.py)
+
+## Schema（最小集）
+- 实体：HazardType, Event, Location, Infrastructure, Resource, Population, Sensor, Report
+- 关系：occurs_at, impacts, located_in, requires, routes_to, nearby, observed_by, updated_by
+- 属性：所有实体需带 `bbox`/`centroid`/时间窗，并存储为 WGS84
+
+## 地理绑定
+- Ingest 时按坐标/时间将 Event 关联最近的 Location（行政区或格网）；为 Event/Resource 计算 bounds
+- 统一 ID：`kg_id` 与地图 `layer_id/feature_id` 可相互定位
+
+## 路由与接口
+- 新增路由文件：[`src/routes/kg_routes.py`](mdc:src/routes/kg_routes.py)
+  - 节点/关系 CRUD
+  - 模式化查询（限定模板+参数）
+  - 结果转图层（GeoJSON/FGb/PostGIS 源）
+
+## 智能体工具
+- 在 [`src/dependencies/pydantic_tools.py`](mdc:src/dependencies/pydantic_tools.py) 注册：
+  - `kg_query(params)`、`find_resources(area, type, time)`
+  - `plan_evacuation(area, population, constraints)`
+  - `simulate_impact(hazard, params)`（驱动 QGIS 任务）
+
+## 安全与规范
+- 所有 Cypher/SQL 必须模板化与参数化，禁止直接执行自由文本
+- 大结果分页或流式传输；地图展示通过新增图层，不改底图源
+

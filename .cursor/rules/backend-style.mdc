@@ -1,0 +1,38 @@
+---
+globs: *.py
+---
+# 后端代码规范（Python/FastAPI）
+
+## 语言与类型
+- Python 3.11，尽量使用 `typing` 明确函数签名（导出/公共接口必须注解）
+- 避免 `any`/不安全类型转换，优先 Pydantic 模型定义请求/响应
+
+## 异步与数据库
+- 一律使用异步接口：
+  - 获取连接：`from src.structures import get_async_db_connection, async_conn`
+  - PostGIS 外部库连接复用：`from src.dependencies.db_pool import get_pooled_connection`
+- SQL 只读约束：
+  - PostGIS 查询前使用 `EXPLAIN (FORMAT JSON)` 校验并拒绝 `ModifyTable`
+  - 强制 `LIMIT < 1000`（参考 `message_routes.query_postgis_database`）
+
+## 存储与大文件
+- 对象存储统一走 `src/utils.py` 中的 `get_async_s3_client()`/`get_s3_client()`
+- 大对象启用分块与 Range（参考 COG/PMTiles/LAZ 实现）
+
+## 地理处理
+- QGIS 处理调用独立服务（`qgis-processing`），通过预签名 URL 输入/输出
+- 统一在路由层实现重试/超时/错误返回结构
+
+## 安全与校验
+- OpenAI/LLM 工具：必须使用受限参数模板（Pydantic 工具），禁止直接执行自由文本 SQL/Cypher
+- 样式：使用 `src/symbology/verify.py` 校验 MapLibre 样式
+- 统一异常：`HTTPException` 携带清晰 `detail`，避免泄漏内部堆栈
+
+## 可观测性
+- 使用 `opentelemetry` 打 Span：KG查询、QGIS 执行、S3 上传、PostGIS 查询
+- 关键路径记录结构化日志，避免打印敏感内容
+
+## 目录放置
+- 路由：`src/routes/`；依赖与 Provider：`src/dependencies/`；模型：`src/database/models.py`
+- 新增模块需在 `src/wsgi.py` 中显式挂载或在现有路由中注入
+

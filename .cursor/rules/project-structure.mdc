@@ -1,0 +1,49 @@
+---
+alwaysApply: true
+---
+# 项目结构与运行指南（mundi.ai）
+
+本规则帮助在仓库内快速定位入口、主要模块与运行方式。
+
+## 入口与核心模块
+- 后端入口：[`src/wsgi.py`](mdc:src/wsgi.py)
+  - 挂载路由：`/api` 业务接口、静态资源与 SPA 回退
+  - 启动时运行迁移（`src/database/migrate.py`）
+- 关键路由：
+  - 图层与可视化：[`src/routes/layer_router.py`](mdc:src/routes/layer_router.py)
+  - 地图/项目/渲染/上传：[`src/routes/postgres_routes.py`](mdc:src/routes/postgres_routes.py)
+  - 会话与智能体编排：[`src/routes/message_routes.py`](mdc:src/routes/message_routes.py)
+  - 会话管理：[`src/routes/conversation_routes.py`](mdc:src/routes/conversation_routes.py)
+- 数据模型与连接：[`src/database/models.py`](mdc:src/database/models.py)，[`src/structures.py`](mdc:src/structures.py)
+- 工具与存储：[`src/utils.py`](mdc:src/utils.py)（S3/MinIO、ID 生成、OpenAI 客户端）
+- QGIS 处理服务：[`qgis-processing/server.py`](mdc:qgis-processing/server.py)
+
+## 前端
+- 入口：[`frontendts/src/main.tsx`](mdc:frontendts/src/main.tsx)、[`frontendts/src/App.tsx`](mdc:frontendts/src/App.tsx)
+- 核心组件：MapLibre 地图（[`MapLibreMap.tsx`](mdc:frontendts/src/components/MapLibreMap.tsx)）、图层列表（[`LayerList.tsx`](mdc:frontendts/src/components/LayerList.tsx)）、项目视图（[`ProjectView.tsx`](mdc:frontendts/src/components/ProjectView.tsx)）
+
+## 文档与 OpenAPI
+- 文档站：[`docs/`](mdc:docs/src/content/docs/index.mdx)
+- OpenAPI 生成与裁剪：[`src/openapi.py`](mdc:src/openapi.py)，输出至 [`docs/src/schema/openapi.json`](mdc:docs/src/schema/openapi.json)
+
+## 本地运行（Docker 推荐）
+- 组合服务定义：[`docker-compose.yml`](mdc:docker-compose.yml)
+- 主镜像构建与依赖（GDAL/MapLibre/Tippecanoe/QGIS 工具链）：[`Dockerfile`](mdc:Dockerfile)
+- 关键环境变量（示例，compose 已提供）：
+  - 数据库：`POSTGRES_HOST/PORT/DB/USER/PASSWORD`
+  - 对象存储：`S3_ENDPOINT_URL/S3_ACCESS_KEY_ID/S3_SECRET_ACCESS_KEY/S3_BUCKET`
+  - 处理服务：`QGIS_PROCESSING_URL`
+  - 模式：`MUNDI_AUTH_MODE=edit|view_only`
+
+## 典型数据流
+1. 用户上传/接入数据 → 落 S3 或 PostGIS → 生成图层记录（`map_layers`）
+2. 渲染/导出：
+   - 栅格：COG/XYZ（rio-tiler）
+   - 矢量：MVT/PMTiles
+3. 会话智能体：消息 → 工具（PostGIS/DuckDB/QGIS/样式）→ 结果新图层 + 自动样式
+
+## 贡献约定（摘要）
+- Python：优先异步 API（`asyncpg` 连接通过 `get_async_db_connection()/async_conn()` 获取）
+- PostGIS 查询必须 LIMIT 且只读；长耗时 QGIS 任务使用后端服务与超时控制
+- 样式统一走 `set_layer_style` 接口，并校验 MapLibre v8 规范
+

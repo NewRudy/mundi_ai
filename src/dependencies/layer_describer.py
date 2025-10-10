@@ -103,9 +103,24 @@ class DefaultLayerDescriber(LayerDescriber):
                     ORDER BY count DESC
                     """
 
-                    async with asyncpg.connect(
-                        connection_result["connection_uri"], ssl=True
-                    ) as postgis_conn:
+                    # Respect sslmode=disable in connection URI; otherwise allow SSL with permissive context
+                    from urllib.parse import urlparse, parse_qs
+                    import ssl as _ssl
+
+                    uri = connection_result["connection_uri"]
+                    parsed = urlparse(uri)
+                    sslmode = (parse_qs(parsed.query).get("sslmode", [None])[0] or "").lower()
+
+                    ssl_param: _ssl.SSLContext | bool | None
+                    if sslmode == "disable":
+                        ssl_param = False
+                    else:
+                        ctx = _ssl.create_default_context()
+                        ctx.check_hostname = False
+                        ctx.verify_mode = _ssl.CERT_NONE
+                        ssl_param = ctx
+
+                    async with asyncpg.connect(uri, ssl=ssl_param) as postgis_conn:
                         geom_results = await postgis_conn.fetch(geom_type_query)
 
                     if geom_results:

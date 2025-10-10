@@ -3,7 +3,7 @@ services:
   app:
     container_name: mundi-app
     platform: linux/amd64
-    image: "${APP_IMAGE:-mundi-public:local}"
+    image: '${APP_IMAGE:-mundi-public:local}'
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,9 +11,9 @@ services:
         - VITE_WEBSITE_DOMAIN=http://localhost:8000
       x-bake:
         tags:
-          - "${APP_IMAGE:-mundi-public:local}"
+          - '${APP_IMAGE:-mundi-public:local}'
     ports:
-      - "8000:8000"
+      - '8000:8000'
     depends_on:
       minio:
         condition: service_healthy
@@ -45,9 +45,9 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONIOENCODING=utf-8
       - POSTGIS_LOCALHOST_POLICY=docker_rewrite
-      # - OPENAI_BASE_URL=http://host.docker.internal:11434/v1
-      # - OPENAI_API_KEY=ollama
-      # - OPENAI_MODEL=orieg/gemma3-tools:1b
+      - OPENAI_BASE_URL=https://api.gemini.google.com/v1/models/
+      - OPENAI_API_KEY=AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q
+      - OPENAI_MODEL=gemini-2.5-pro
       #-  MUNDI_EMBED_ALLOWED_ORIGINS=http://localhost:4321
     command: uvicorn src.wsgi:app --host 0.0.0.0 --port 8000 --log-level debug --access-log --use-colors
     volumes:
@@ -66,7 +66,7 @@ services:
       - ./data/minio:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/minio/health/live']
       interval: 1s
       timeout: 2s
       retries: 10
@@ -94,16 +94,15 @@ services:
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U mundiuser -d mundidb"]
+      test: ['CMD-SHELL', 'pg_isready -U mundiuser -d mundidb']
       interval: 1s
       timeout: 5s
       retries: 10
 
-
   redis:
     image: redis:alpine
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 1s
       timeout: 2s
       retries: 5
@@ -119,7 +118,7 @@ services:
           - qgis-processing:local
     command: python -m uvicorn server:app --host 0.0.0.0 --port 8817
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8817/health"]
+      test: ['CMD', 'curl', '-f', 'http://localhost:8817/health']
       interval: 30s
       timeout: 30s
       retries: 3

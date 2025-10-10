@@ -174,13 +174,25 @@ class PostgresConnectionManager:
         pg_connection = await self.get_connection(connection_id)
 
         try:
-            # Create SSL context that accepts self-signed certificates
-            ssl_context = ssl.create_default_context()
-            ssl_context.check_hostname = False
-            ssl_context.verify_mode = ssl.CERT_NONE
+            # Decide SSL behavior from connection URI (?sslmode=disable to disable)
+            from urllib.parse import parse_qs
+            uri = pg_connection["connection_uri"]
+            parsed = urlparse(uri)
+            query = parse_qs(parsed.query)
+            sslmode = (query.get("sslmode", [None])[0] or "").lower()
+
+            ssl_param: ssl.SSLContext | bool | None
+            if sslmode == "disable":
+                ssl_param = False
+            else:
+                # Default: enable SSL but accept self-signed certs
+                ssl_context = ssl.create_default_context()
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                ssl_param = ssl_context
 
             conn = await asyncio.wait_for(
-                asyncpg.connect(pg_connection["connection_uri"], ssl=ssl_context),
+                asyncpg.connect(uri, ssl=ssl_param),
                 timeout=timeout,
             )
 

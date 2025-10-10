@@ -1,0 +1,22 @@
+---
+globs: frontendts/**/*.ts,frontendts/**/*.tsx
+---
+# 前端代码规范（Vite + React + TypeScript）
+
+## 组件与状态
+- 组件放置于 `frontendts/src/components`；页面在 `frontendts/src/pages`
+- 使用函数组件与 hooks，避免类组件；跨组件数据放 `contexts/`
+- 地图组件统一使用 `MapLibreMap.tsx` 提供的封装，外部通过 props 传入 style/layers
+
+## 类型与接口
+- 所有公共组件 props 必须有显式 TypeScript 类型
+- 与后端交互的接口在 `lib/types.tsx`/`lib/frontend-types.ts` 定义与复用
+
+## 性能与交互
+- 密集渲染区域使用 `React.memo`/`useMemo`/`useCallback`
+- 大列表/表格采用惰性加载或分页（后端已有分页接口）
+
+## 地图与可视化
+- 样式 JSON 只读来源于后端接口，前端仅做展示与最小编辑（避免与服务端校验冲突）
+- 叠加临时分析结果时，优先通过新图层追加，不直接改底图源
+

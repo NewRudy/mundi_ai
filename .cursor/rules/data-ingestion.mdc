@@ -1,0 +1,23 @@
+---
+description: 数据摄取与实时预警（CAP/GDACS/USGS/NOAA/OSM/ESRI）
+---
+# 数据摄取与实时预警规则
+
+## 目录与文件
+- 建议新增：`src/tools/ingest_cap.py`, `ingest_usgs.py`, `ingest_noaa.py`, `ingest_gdacs.py`
+- 统一入口可为 `src/tools/ingest_cli.py`，支持定时与一次性拉取
+
+## 标准化流程
+1. 拉取/接收（HTTP/API/Webhook）
+2. 规范化字段（id、时间窗、坐标、分类、来源）
+3. 去重与更新（使用 `(source_id, time, geohash)` 指纹）
+4. 写入 KG（Event/Location/Resource 等）
+5. 必要时生成地图图层（GeoJSON→S3 或 PostGIS 源）
+6. 通过 Redis 推送增量，触发前端刷新/标注
+
+## 地理绑定与网格
+- 将事件/资源绑定至最近行政区或格网（支持 1km/5km 网格），便于汇总与告警
+
+## 错误与重试
+- 网络/第三方错误采用指数退避；幂等写入以指纹键控制
+

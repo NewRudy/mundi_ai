@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import ssl
+from urllib.parse import urlparse, parse_qs
 import asyncpg
 from typing import Dict, AsyncGenerator
 from contextlib import asynccontextmanager
@@ -25,11 +26,21 @@ _connection_pools: Dict[str, asyncpg.Pool] = {}
 async def get_or_create_pool(connection_uri: str) -> asyncpg.Pool:
     """Get existing pool or create new one for the connection URI"""
     if connection_uri not in _connection_pools:
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
+        parsed = urlparse(connection_uri)
+        query = parse_qs(parsed.query)
+        sslmode = (query.get("sslmode", [None])[0] or "").lower()
+
+        ssl_param: ssl.SSLContext | bool | None
+        if sslmode == "disable":
+            ssl_param = False
+        else:
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            ssl_param = ssl_context
+
         _connection_pools[connection_uri] = await asyncpg.create_pool(
-            connection_uri, ssl=ssl_context, min_size=1, max_size=10, command_timeout=60
+            connection_uri, ssl=ssl_param, min_size=1, max_size=10, command_timeout=60
         )
     return _connection_pools[connection_uri]
 
