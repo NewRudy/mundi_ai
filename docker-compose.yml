@@ -45,7 +45,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONIOENCODING=utf-8
       - POSTGIS_LOCALHOST_POLICY=docker_rewrite
-      - OPENAI_BASE_URL=https://api.gemini.google.com/v1/models/
+      - OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
       - OPENAI_API_KEY=AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q
       - OPENAI_MODEL=gemini-2.5-pro
       #-  MUNDI_EMBED_ALLOWED_ORIGINS=http://localhost:4321
