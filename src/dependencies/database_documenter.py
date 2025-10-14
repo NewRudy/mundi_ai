@@ -79,13 +79,14 @@ class DefaultDatabaseDocumenter(DatabaseDocumenter):
             # Establish a connection using the connection manager for proper error tracking
             conn = await connection_manager.connect_to_postgres(connection_id)
             try:
-                # Get all tables
+                # Get all tables from all schemas (excluding system schemas)
                 tables = await conn.fetch(
                     """
-                    SELECT table_name
+                    SELECT table_schema, table_name
                     FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
-                    ORDER BY table_name
+                    WHERE table_schema NOT IN ('pg_catalog', 'information_schema')
+                      AND table_type = 'BASE TABLE'
+                    ORDER BY table_schema, table_name
                 """
                 )
 
@@ -96,9 +97,18 @@ class DefaultDatabaseDocumenter(DatabaseDocumenter):
                 schema_description = f"Database: {connection_name}\n\n"
 
                 table_names = []
+                current_schema = None
+                
                 for table in tables:
+                    table_schema = table["table_schema"]
                     table_name = table["table_name"]
-                    table_names.append(table_name)
+                    full_table_name = f"{table_schema}.{table_name}"
+                    table_names.append(full_table_name)
+
+                    # Add schema header if this is a new schema
+                    if current_schema != table_schema:
+                        current_schema = table_schema
+                        schema_description += f"=== Schema: {table_schema} ===\n\n"
 
                     # Get columns (similar to \d+ output)
                     columns = await conn.fetch(
@@ -109,13 +119,14 @@ class DefaultDatabaseDocumenter(DatabaseDocumenter):
                             is_nullable,
                             column_default
                         FROM information_schema.columns
-                        WHERE table_schema = 'public' AND table_name = $1
+                        WHERE table_schema = $1 AND table_name = $2
                         ORDER BY ordinal_position
                     """,
+                        table_schema,
                         table_name,
                     )
 
-                    schema_description += f"Table: {table_name}\n"
+                    schema_description += f"Table: {table_schema}.{table_name}\n"
                     schema_description += "Columns:\n"
 
                     for col in columns:
@@ -135,7 +146,7 @@ class DefaultDatabaseDocumenter(DatabaseDocumenter):
                 await conn.close()
 
             # Generate friendly name
-            name_prompt = f"""Based on the following database tables, generate a short, friendly display name (2-4 words) that describes what this database contains or its purpose.
+            name_prompt = f"""Based on the following database tables (with schemas), generate a short, friendly display name (2-4 words) that describes what this database contains or its purpose.
 
 Database Name: {connection_name}
 Tables: {", ".join(table_names)}
@@ -155,14 +166,15 @@ Respond with ONLY the friendly name, no additional text."""
             friendly_name = name_response.choices[0].message.content.strip()
 
             # Generate documentation
-            system_prompt = """You are a database documentation expert. Create a brief overview of a PostgreSQL database.
+            system_prompt = """You are a database documentation expert. Create a brief overview of a PostgreSQL database with multiple schemas.
 
 Start immediately with a description beginning with "This PostgreSQL database...".
 
 Be concise - just 2-3 paragraphs describing:
-1. What the database appears to contain based on table names
+1. What the database appears to contain based on table names across all schemas
 2. The main purpose or domain it serves
-3. Key tables and their likely relationships
+3. Key tables and their likely relationships (mention schemas when relevant)
+4. Notable schema organization patterns
 
 Do not use any markdown headers."""
 

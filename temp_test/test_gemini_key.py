@@ -10,10 +10,14 @@ async def test_gemini_api():
     """测试 Gemini API 连接"""
     
     # 从环境变量读取配置（与 Mundi 一致）
-    api_key = "AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q"
+    api_key = "sk-bpbznxvencyxnyjstpdlandiisuxeygpyzybdlizxnzzlfso"
     # base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
-    base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
-    model = "gemini-2.5-pro"
+    base_url = "https://api.siliconflow.cn"
+    model = "deepseek-ai/DeepSeek-v3"
+    # api_key = "AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q"
+    # # base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
+    # base_url = "https://generativelanguage.googleapis.com/v1beta/openai/"
+    # model = "gemini-2.5-pro"
     
     print("=" * 60)
     print("🔍 Gemini API 配置测试")
