@@ -45,12 +45,15 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONIOENCODING=utf-8
       - POSTGIS_LOCALHOST_POLICY=docker_rewrite
-      - OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-      # - OPENAI_API_KEY=AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q
-      # - OPENAI_MODEL=gemini-2.5-pro
-      - OPENAI_BASE_URL=https://api.siliconflow.cn
-      - OPENAI_API_KEY=sk-bpbznxvencyxnyjstpdlandiisuxeygpyzybdlizxnzzlfso
-      - OPENAI_MODEL=deepseek-ai/DeepSeek-v3
+
+      - OPENAI_BASE_URL=https://api-inference.modelscope.cn/v1
+      - OPENAI_API_KEY=ms-c3959c5b-79f7-4303-b8b6-bc779e945ead
+      - OPENAI_MODEL=ZhipuAI/GLM-4.6
+
+      # - OPENAI_BASE_URL=https://api.siliconflow.cn
+      # - OPENAI_API_KEY=sk-bpbznxvencyxnyjstpdlandiisuxeygpyzybdlizxnzzlfso
+      # - OPENAI_MODEL=deepseek-ai/DeepSeek-v3
+
       # - OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
       # - OPENAI_API_KEY=AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q
       # - OPENAI_MODEL=gemini-2.5-pro
