@@ -128,11 +128,11 @@ async def test_zoom_integration_with_real_openai(
             assert sent_msg["role"] == "user"
             assert "zoom to downtown Seattle" in sent_msg["content"]
 
-            # Kue is thinking
+            # Anway is thinking
             msg = websocket.receive_json()
-            assert msg["ephemeral"] and msg["action"] == "Kue is thinking..."
+            assert msg["ephemeral"] and msg["action"] == "Anway is thinking..."
             msg = websocket.receive_json()
-            assert msg["ephemeral"] and msg["action"] == "Kue is thinking..."
+            assert msg["ephemeral"] and msg["action"] == "Anway is thinking..."
             assert msg["status"] == "completed"
 
             # Message 4: Zoom action (start)
@@ -167,13 +167,13 @@ async def test_zoom_integration_with_real_openai(
             # Message 7: Final thinking (start)
             msg7 = websocket.receive_json()
             assert msg7["ephemeral"]
-            assert msg7["action"] == "Kue is thinking..."
+            assert msg7["action"] == "Anway is thinking..."
             assert msg7["status"] == "active"
 
             # Message 8: Final thinking (completed)
             msg8 = websocket.receive_json()
             assert msg8["ephemeral"]
-            assert msg8["action"] == "Kue is thinking..."
+            assert msg8["action"] == "Anway is thinking..."
             assert msg8["status"] == "completed"
 
             # Message 9: Final assistant response

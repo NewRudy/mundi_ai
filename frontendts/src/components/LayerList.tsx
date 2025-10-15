@@ -816,7 +816,7 @@ const LayerList: React.FC<LayerListProps> = ({
               <DialogDescription>
                 Your database connection details will be stored on the server. Read-only access is best.{' '}
                 <a
-                  href="https://docs.mundi.ai/guides/connecting-to-postgis/"
+                  href="https://docs.anway.ai/guides/connecting-to-postgis/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-300 hover:text-blue-400 underline"
@@ -863,7 +863,7 @@ const LayerList: React.FC<LayerListProps> = ({
               {connectionMethod === 'demo' ? (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-300">
-                    {demoConfig.description} We provide it as a demo to preview Mundi's capabilities, especially for users with sensitive
+                    {demoConfig.description} We provide it as a demo to preview Anway's capabilities, especially for users with sensitive
                     PostGIS databases who would rather self-host or use an on-premise deployment.
                   </p>
                 </div>
@@ -998,7 +998,7 @@ const LayerList: React.FC<LayerListProps> = ({
                   <div className="text-sm text-red-700">
                     {postgisError}{' '}
                     <a
-                      href="https://docs.mundi.ai/guides/connecting-to-postgis/#debugging-common-problems"
+                      href="https://docs.anway.ai/guides/connecting-to-postgis/#debugging-common-problems"
                       target="_blank"
                       className="text-blue-500 hover:text-blue-600 underline"
                       rel="noopener"

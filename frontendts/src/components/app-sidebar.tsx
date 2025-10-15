@@ -3,10 +3,10 @@ import { BookOpen, Cloud, House, PanelRightClose, PanelRightOpen } from 'lucide-
 import { Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import BuntingBirdSvg from '@/assets/bunting_bird.svg';
-import MDarkSvg from '@/assets/M-dark.svg';
-import MLightSvg from '@/assets/M-light.svg';
-import MundiDarkSvg from '@/assets/Mundi-dark.svg';
-import MundiLightSvg from '@/assets/Mundi-light.svg';
+import ADarkSvg from '@/assets/A-dark.svg';
+import ALightSvg from '@/assets/A-light.svg';
+import AnwayDarkSvg from '@/assets/Anway-dark.svg';
+import AnwayLightSvg from '@/assets/Anway-light.svg';
 import { Button } from '@/components/ui/button';
 import {
   Sidebar,
@@ -42,8 +42,8 @@ export function AppSidebar() {
         {state === 'collapsed' ? (
           <>
             <a href="https://mundi.ai/" target="_blank" className="w-8 h-8">
-              <img src={MLightSvg} alt="M" className="w-full h-full dark:hidden" />
-              <img src={MDarkSvg} alt="M" className="w-full h-full hidden dark:block" />
+              <img src={ALightSvg} alt="A" className="w-full h-full dark:hidden" />
+              <img src={ADarkSvg} alt="A" className="w-full h-full hidden dark:block" />
             </a>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -59,8 +59,8 @@ export function AppSidebar() {
         ) : (
           <div className="flex items-center justify-between w-full">
             <a href="https://docs.mundi.ai/" target="_blank" className="h-8">
-              <img src={MundiLightSvg} alt="Mundi" className="h-full dark:hidden" />
-              <img src={MundiDarkSvg} alt="Mundi" className="h-full hidden dark:block" />
+              <img src={AnwayLightSvg} alt="Anway" className="h-full dark:hidden" />
+              <img src={AnwayDarkSvg} alt="Anway" className="h-full hidden dark:block" />
             </a>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -124,10 +124,10 @@ export function AppSidebar() {
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Mundi Cloud">
+                <SidebarMenuButton asChild tooltip="Anway Cloud">
                   <a href="https://app.mundi.ai" target="_blank">
                     <Cloud className="w-4 h-4 mr-2" />
-                    <span className="text-sm">Mundi Cloud</span>
+                    <span className="text-sm">Anway Cloud</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>

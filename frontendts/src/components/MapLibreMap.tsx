@@ -53,7 +53,7 @@ import type {
 const EMPTY_POINT_CLOUD_LAYERS: MapLayer[] = [];
 
 // Import styles in the parent component
-const KUE_MESSAGE_STYLE = `
+const ANWAY_MESSAGE_STYLE = `
   text-sm
   [&_table]:w-full [&_table]:border-collapse [&_table]:text-left
   [&_thead]:border-b-1 [&_thead]:border-gray-600
@@ -479,12 +479,12 @@ export default function MapLibreMap({
     [mapRef],
   );
 
-  const UPDATE_KUE_POINTER_MSEC = 40;
-  const KUE_CURVE_DURATION_MS = 2000;
+  const UPDATE_ANWAY_POINTER_MSEC = 40;
+  const ANWAY_CURVE_DURATION_MS = 2000;
 
-  // State for Kue's animated positions (indexed by action_id)
-  const [kuePositions, setKuePositions] = useState<Record<string, { lng: number; lat: number }>>({});
-  const [kueTargetPoints, setKueTargetPoints] = useState<Record<string, Array<{ lng: number; lat: number }>>>({});
+  // State for Anway's animated positions (indexed by action_id)
+  const [anwayPositions, setAnwayPositions] = useState<Record<string, { lng: number; lat: number }>>({});
+  const [anwayTargetPoints, setAnwayTargetPoints] = useState<Record<string, Array<{ lng: number; lat: number }>>>({});
 
   // Generate random points within layer bounds
   const generateRandomPointsInBounds = useCallback((bounds: number[], count: number = 3) => {
@@ -513,7 +513,7 @@ export default function MapLibreMap({
     [],
   );
 
-  // Update Kue's target points when active actions change
+  // Update Anway's target points when active actions change
   useEffect(() => {
     const activeLayerActions = activeActions.filter((action) => action.status === 'active' && action.layer_id);
 
@@ -521,11 +521,11 @@ export default function MapLibreMap({
     const currentActionIds = new Set(activeLayerActions.map((action) => action.action_id));
 
     // Remove state for actions that are no longer active
-    setKuePositions((prev) => {
+    setAnwayPositions((prev) => {
       const filtered = Object.fromEntries(Object.entries(prev).filter(([actionId]) => currentActionIds.has(actionId)));
       return filtered;
     });
-    setKueTargetPoints((prev) => {
+    setAnwayTargetPoints((prev) => {
       const filtered = Object.fromEntries(Object.entries(prev).filter(([actionId]) => currentActionIds.has(actionId)));
       return filtered;
     });
@@ -538,13 +538,13 @@ export default function MapLibreMap({
           const actionId = action.action_id;
 
           // Only initialize if not already present
-          setKueTargetPoints((prev) => {
+          setAnwayTargetPoints((prev) => {
             if (prev[actionId]) return prev;
             const newTargetPoints = generateRandomPointsInBounds(layer.bounds!);
             return { ...prev, [actionId]: newTargetPoints };
           });
 
-          setKuePositions((prev) => {
+          setAnwayPositions((prev) => {
             if (prev[actionId]) return prev;
             const newTargetPoints = generateRandomPointsInBounds(layer.bounds!);
             return { ...prev, [actionId]: newTargetPoints[0] };
@@ -554,31 +554,31 @@ export default function MapLibreMap({
     }
   }, [activeActions, mapData, generateRandomPointsInBounds]);
 
-  // Animate Kue's positions based on timestamp
+  // Animate Anway's positions based on timestamp
   useEffect(() => {
-    const activeActionIds = Object.keys(kueTargetPoints);
+    const activeActionIds = Object.keys(anwayTargetPoints);
     if (activeActionIds.length === 0) return;
 
     const interval = setInterval(() => {
       const now = Date.now();
 
       activeActionIds.forEach((actionId) => {
-        const targetPoints = kueTargetPoints[actionId];
+        const targetPoints = anwayTargetPoints[actionId];
 
         if (targetPoints && targetPoints.length >= 2) {
           // Calculate progress based on timestamp modulo curve duration
-          const progress = (now % KUE_CURVE_DURATION_MS) / KUE_CURVE_DURATION_MS;
+          const progress = (now % ANWAY_CURVE_DURATION_MS) / ANWAY_CURVE_DURATION_MS;
 
           // Check if we've started a new curve cycle
-          const currentCycle = Math.floor(now / KUE_CURVE_DURATION_MS);
-          const lastCycle = Math.floor((now - UPDATE_KUE_POINTER_MSEC) / KUE_CURVE_DURATION_MS);
+          const currentCycle = Math.floor(now / ANWAY_CURVE_DURATION_MS);
+          const lastCycle = Math.floor((now - UPDATE_ANWAY_POINTER_MSEC) / ANWAY_CURVE_DURATION_MS);
 
           if (currentCycle !== lastCycle) {
             // Generate new random points for the new curve
             const layer = mapData?.layers?.find((l) => activeActions.find((a) => a.action_id === actionId)?.layer_id === l.id);
             if (layer?.bounds) {
               const newTargetPoints = generateRandomPointsInBounds(layer.bounds);
-              setKueTargetPoints((prev) => ({
+              setAnwayTargetPoints((prev) => ({
                 ...prev,
                 [actionId]: newTargetPoints,
               }));
@@ -592,30 +592,30 @@ export default function MapLibreMap({
 
           const interpolatedPosition = bezierInterpolate(startPoint, middlePoint, endPoint, progress);
 
-          setKuePositions((prev) => ({
+          setAnwayPositions((prev) => ({
             ...prev,
             [actionId]: interpolatedPosition,
           }));
         }
       });
-    }, UPDATE_KUE_POINTER_MSEC);
+    }, UPDATE_ANWAY_POINTER_MSEC);
 
     return () => clearInterval(interval);
-  }, [kueTargetPoints, activeActions, mapData, bezierInterpolate, generateRandomPointsInBounds]);
+  }, [anwayTargetPoints, activeActions, mapData, bezierInterpolate, generateRandomPointsInBounds]);
 
   // Generate GeoJSON from pointer positions
   const pointsGeoJSON = useMemo(() => {
     const features: GeoJSON.Feature[] = [];
 
-    // Add Kue's animated positions
-    Object.entries(kuePositions).forEach(([actionId, position]) => {
+    // Add Anway's animated positions
+    Object.entries(anwayPositions).forEach(([actionId, position]) => {
       features.push({
         type: 'Feature' as const,
         geometry: {
           type: 'Point' as const,
           coordinates: [position.lng, position.lat],
         },
-        properties: { user: 'Kue', abbrev: 'Kue', color: '#ff69b4', actionId },
+        properties: { user: 'Anway', abbrev: 'Anway', color: '#ff69b4', actionId },
       });
     });
 
@@ -623,7 +623,7 @@ export default function MapLibreMap({
       type: 'FeatureCollection' as const,
       features,
     };
-  }, [kuePositions]);
+  }, [anwayPositions]);
 
   const loadLegendSymbols = useCallback(
     (map: MLMap) => {
@@ -991,7 +991,7 @@ export default function MapLibreMap({
       map_id: mapId,
       ephemeral: true,
       action_id: actionId,
-      action: 'Sending message to Kue...',
+      action: 'Sending message to Anway...',
       timestamp: new Date().toISOString(),
       completed_at: null,
       layer_id: null,
@@ -1306,7 +1306,7 @@ export default function MapLibreMap({
                 )}
               </div>
             ) : lastAssistantMsg ? (
-              <div className={KUE_MESSAGE_STYLE}>
+              <div className={ANWAY_MESSAGE_STYLE}>
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{lastAssistantMsg}</ReactMarkdown>
               </div>
             ) : null}
@@ -1317,7 +1317,7 @@ export default function MapLibreMap({
         >
           <Input
             className={`flex-1 border-none shadow-none !bg-transparent focus:!ring-0 focus:!ring-offset-0 focus-visible:!ring-0 focus-visible:!ring-offset-0 focus-visible:!outline-none`}
-            placeholder={lastUserMsg || 'Type in for Kue to do something...'}
+            placeholder={lastUserMsg || 'Type in for Anway to do something...'}
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -1330,7 +1330,7 @@ export default function MapLibreMap({
                 </span>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Kue can see your selected feature</p>
+                <p>Anway can see your selected feature</p>
               </TooltipContent>
             </Tooltip>
           )}

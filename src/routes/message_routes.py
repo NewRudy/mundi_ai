@@ -911,7 +911,7 @@ async def process_chat_interaction_task(
                     ].pop("enum", None)
 
                 # Replace the thinking ephemeral updates with context manager
-                async with kue_ephemeral_action(conversation.id, "Kue is thinking..."):
+                async with kue_ephemeral_action(conversation.id, "Anway is thinking..."):
                     chat_completions_args = await chat_args.get_args(
                         user_id, "send_map_message_async"
                     )
@@ -955,7 +955,7 @@ async def process_chat_interaction_task(
                         except Exception as e:
                             await kue_notify_error(
                                 conversation.id,
-                                "Error connecting to LLM. This is probably a bug with Mundi, please open a new issue on GitHub.",
+                                "Error connecting to LLM. This is probably a bug with Anway, please open a new issue on GitHub.",
                             )
                             span.set_status(
                                 trace.Status(trace.StatusCode.ERROR, str(e))
