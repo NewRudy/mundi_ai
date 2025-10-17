@@ -57,7 +57,7 @@ def _assert_all_properties_required(model: Type[BaseModel]) -> None:
     if missing:
         # Print a clear, actionable message to stdout to aid debugging during app startup
         print(
-            "[Mundi tools] Invalid tool arg model detected:",
+            "[Anway tools] Invalid tool arg model detected:",
             model.__name__,
             "— optional/default fields found:",
             sorted(missing),
@@ -76,7 +76,7 @@ def tool_from(fn, model: Type[BaseModel]) -> Dict[str, Any]:
     except ValueError as e:
         # Echo a helpful stdout hint including function name
         print(
-            f"[Mundi tools] Tool schema error in '{fn.__name__}' for model '{model.__name__}':",
+            f"[Anway tools] Tool schema error in '{fn.__name__}' for model '{model.__name__}':",
             str(e),
         )
         raise
@@ -105,7 +105,7 @@ def tool_from(fn, model: Type[BaseModel]) -> Dict[str, Any]:
     }
 
 
-class MundiToolCallMetaArgs(BaseModel):
+class AnwayToolCallMetaArgs(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     user_uuid: str
     conversation_id: int

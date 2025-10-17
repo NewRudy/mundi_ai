@@ -29,21 +29,25 @@ from src.routes import (
 from src.routes.postgres_routes import basemap_router
 from src.routes.layer_router import layer_router
 from src.routes.attribute_table import attribute_table_router
+from src.routes.graph_routes import router as graph_router
 # from fastapi_mcp import FastApiMCP
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Run database migrations on startup"""
+    """Run database migrations and initialize Neo4j on startup"""
     from src.database.migrate import run_migrations
+    from src.dependencies.neo4j_connection import init_neo4j, cleanup_neo4j
 
     await run_migrations()
+    await init_neo4j()
     yield
-    # Cleanup code here if needed
+    # Cleanup on shutdown
+    await cleanup_neo4j()
 
 
 app = FastAPI(
-    title="Mundi.ai",
+    title="Anway.ai",
     description="Open source, AI native GIS software",
     version="0.0.1",
     # Don't show OpenAPI spec, docs, redoc
@@ -92,12 +96,17 @@ app.include_router(
     prefix="/api",
     tags=["Conversations"],
 )
+app.include_router(
+    graph_router,
+    prefix="/api/graph",
+    tags=["Knowledge Graph"],
+)
 
 
 # TODO: this isn't useful right now. But we should work on it in the future
 # mcp = FastApiMCP(
 #     app,
-#     name="Mundi.ai MCP",
+#     name="Anway.ai MCP",
 #     description="GIS as an MCP",
 #     exclude_operations=[
 #         "upload_layer_to_map",

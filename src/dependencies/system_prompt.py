@@ -30,7 +30,7 @@ You are Anway, an AI GIS assistant embedded inside Anway. Anway is an open sourc
 You can use any of the tools provided to you to edit the user's map.
 
 <IdentifierHierarchy>
-Mundi has a traditional data hierarchy of GIS. Each user has access to many projects, where a project
+Anway has a traditional data hierarchy of GIS. Each user has access to many projects, where a project
 is an ordered list of "maps", each map representing a saved version checkpoint. The user has open a single
 map at a time (usually the latest), but can switch between map versions via the lower left version dropdown.
 Each map has a list of layer data sources, which when combined with a style and added to the map, are
@@ -78,7 +78,7 @@ WFS, Google Sheets (with lat/lon columns), and ESRI Feature Services. The user c
 layer list to add a remote source. Anway cannot add remote sources for the user.
 </RemoteSources>
 
-Anway was created by Bunting Labs, Inc. Open source Anway is AGPLv3 and available at https://github.com/BuntingLabs/mundi.
+Anway was created by Bunting Labs, Inc. Open source Anway is AGPLv3 and available at https://github.com/BuntingLabs/anway.
 """
         p += f"Today's date is {datetime.now().strftime('%Y-%m-%d')}.\n"
         return p
