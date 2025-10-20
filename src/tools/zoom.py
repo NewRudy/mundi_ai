@@ -17,7 +17,7 @@ from typing import Any, Dict
 from pydantic import BaseModel, Field, model_validator
 from src.routes.websocket import kue_ephemeral_action
 import asyncio
-from src.tools.pyd import MundiToolCallMetaArgs
+from src.tools.pyd import AnwayToolCallMetaArgs
 
 
 class ZoomToBoundsArgs(BaseModel):
@@ -55,7 +55,7 @@ class ZoomToBoundsArgs(BaseModel):
 
 
 async def zoom_to_bounds(
-    args: ZoomToBoundsArgs, mundi: MundiToolCallMetaArgs
+    args: ZoomToBoundsArgs, mundi: AnwayToolCallMetaArgs
 ) -> Dict[str, Any]:
     """Zoom the map to a specific bounding box in WGS84 coordinates. This will save the user's current zoom location to history and navigate to the new bounds."""
     bounds = args.bounds

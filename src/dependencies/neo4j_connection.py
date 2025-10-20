@@ -15,10 +15,28 @@
 
 import os
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+from typing import AsyncGenerator, TYPE_CHECKING, Any
 
-from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession
-from neo4j.exceptions import ServiceUnavailable, AuthError
+try:
+    from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession  # type: ignore
+    from neo4j.exceptions import ServiceUnavailable, AuthError  # type: ignore
+    NEO4J_AVAILABLE = True
+except Exception:
+    AsyncGraphDatabase = None  # type: ignore
+    AsyncDriver = Any  # type: ignore
+    AsyncSession = Any  # type: ignore
+
+    class ServiceUnavailable(Exception):
+        ...
+
+    class AuthError(Exception):
+        ...
+
+    NEO4J_AVAILABLE = False
+
+if TYPE_CHECKING:
+    from neo4j import AsyncDriver as _AsyncDriver  # noqa: F401
+    from neo4j import AsyncSession as _AsyncSession  # noqa: F401
 
 
 class Neo4jConfig:
@@ -45,8 +63,11 @@ class Neo4jConnection:
     
     async def connect(self) -> AsyncDriver:
         """Create and return Neo4j driver"""
+        if not NEO4J_AVAILABLE:
+            raise RuntimeError("neo4j Python driver is not installed. Please install 'neo4j' to enable graph features.")
         if self.driver is None:
             try:
+                assert AsyncGraphDatabase is not None
                 self.driver = AsyncGraphDatabase.driver(
                     self.config.uri,
                     auth=self.config.auth,
@@ -73,7 +94,7 @@ class Neo4jConnection:
     async def session(self) -> AsyncGenerator[AsyncSession, None]:
         """Create Neo4j session context manager"""
         driver = await self.connect()
-        async with driver.session() as session:
+        async with driver.session() as session:  # type: ignore[attr-defined]
             yield session
 
 

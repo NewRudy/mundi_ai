@@ -20,7 +20,7 @@ from src.tools.zoom import (
     ZoomToBoundsArgs,
     zoom_to_bounds,
 )
-from src.tools.pyd import MundiToolCallMetaArgs
+from src.tools.pyd import AnwayToolCallMetaArgs
 from src.tools.openstreetmap import (
     download_from_openstreetmap as osm_download_tool,
     DownloadFromOpenStreetMapArgs,
@@ -35,7 +35,7 @@ PydanticToolRegistry: TypeAlias = Mapping[
 
 
 def get_pydantic_tool_calls() -> PydanticToolRegistry:
-    """Return mapping of tool name -> (async function, ArgModel, MundiArgModel).
+    """Return mapping of tool name -> (async function, ArgModel, AnwayArgModel).
 
     Defined as a FastAPI dependency to allow overrides in tests or different deployments.
     """
@@ -43,13 +43,13 @@ def get_pydantic_tool_calls() -> PydanticToolRegistry:
         "zoom_to_bounds": (
             zoom_to_bounds,
             ZoomToBoundsArgs,
-            MundiToolCallMetaArgs,
+            AnwayToolCallMetaArgs,
         ),
     }
     if has_openstreetmap_api_key():
         registry["download_from_openstreetmap"] = (
             osm_download_tool,
             DownloadFromOpenStreetMapArgs,
-            MundiToolCallMetaArgs,
+            AnwayToolCallMetaArgs,
         )
     return registry

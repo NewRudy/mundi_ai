@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 from src.routes.websocket import kue_ephemeral_action
-from src.tools.pyd import MundiToolCallMetaArgs
+from src.tools.pyd import AnwayToolCallMetaArgs
 from src.openstreetmap import download_from_openstreetmap as core_osm_download
 
 
@@ -21,7 +21,7 @@ class DownloadFromOpenStreetMapArgs(BaseModel):
 
 
 async def download_from_openstreetmap(
-    args: DownloadFromOpenStreetMapArgs, mundi: MundiToolCallMetaArgs
+    args: DownloadFromOpenStreetMapArgs, mundi: AnwayToolCallMetaArgs
 ) -> Dict[str, Any]:
     """Download features from OSM and add to project as a cloud FlatGeobuf layer"""
     tags = args.tags

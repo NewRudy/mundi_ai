@@ -47,7 +47,7 @@ services:
       - NEO4J_HOST=neo4j
       - NEO4J_PORT=7687
       - NEO4J_USER=neo4j
-      - NEO4J_PASSWORD=anwaypassword
+      - NEO4J_PASSWORD=onlywtx.
       - PYTHONUNBUFFERED=1
       - PYTHONIOENCODING=utf-8
       - POSTGIS_LOCALHOST_POLICY=docker_rewrite
@@ -123,9 +123,9 @@ services:
       retries: 5
 
   neo4j:
-    image: neo4j:5.15-community
+    image: neo4j:5.26.8-community
     environment:
-      - NEO4J_AUTH=neo4j/anwaypassword
+      - NEO4J_AUTH=neo4j/onlywtx.
       - NEO4J_PLUGINS=["apoc"]
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
       - NEO4J_dbms_security_procedures_allowlist=apoc.*
@@ -136,7 +136,7 @@ services:
       - ./data/neo4j:/data
       - ./data/neo4j-logs:/logs
     healthcheck:
-      test: ['CMD', 'cypher-shell', '-u', 'neo4j', '-p', 'anwaypassword', 'MATCH (n) RETURN count(n)']
+      test: ['CMD', 'cypher-shell', '-u', 'neo4j', '-p', 'onlywtx.', 'MATCH (n) RETURN count(n)']
       interval: 10s
       timeout: 10s
       retries: 5

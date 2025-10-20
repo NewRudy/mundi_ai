@@ -14,11 +14,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import uuid
-from typing import List, Optional, Dict, Any, Union
+from typing import List, Optional, Dict, Any, Union, TYPE_CHECKING
 from datetime import datetime
 
-from neo4j import AsyncSession
-from neo4j.exceptions import Neo4jError
+try:
+    from neo4j.exceptions import Neo4jError as _Neo4jError  # type: ignore
+except Exception:
+    class _Neo4jError(Exception):
+        ...
+
+if TYPE_CHECKING:
+    from neo4j import AsyncSession  # type: ignore
 
 from src.dependencies.neo4j_connection import get_neo4j_session
 from src.models.graph_models import (
@@ -104,7 +110,7 @@ class GraphService:
                 result = await session.run(cypher, properties=neo4j_properties)
                 record = await result.single()
                 return record['id']
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to create node: {e}")
     
     async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
@@ -124,7 +130,7 @@ class GraphService:
                 # Convert properties back from Neo4j
                 node = self._convert_properties_from_neo4j(node)
                 return node
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to get node: {e}")
     
     async def update_node(self, node_id: str, properties: Dict[str, Any]) -> bool:
@@ -151,7 +157,7 @@ class GraphService:
                 result = await session.run(cypher, node_id=node_id)
                 record = await result.single()
                 return record['deleted_count'] > 0
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to delete node: {e}")
     
     async def create_relationship(self, relationship_data: Union[GraphRelationship, CreateRelationshipRequest]) -> str:
@@ -192,7 +198,7 @@ class GraphService:
                 if not record:
                     raise Exception("Failed to create relationship - nodes may not exist")
                 return record['id']
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to create relationship: {e}")
     
     async def get_node_relationships(self, node_id: str, direction: str = "both") -> List[Dict[str, Any]]:
@@ -226,7 +232,7 @@ class GraphService:
                     rel_data['direction'] = record['direction']
                     relationships.append(rel_data)
                 return relationships
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to get relationships: {e}")
     
     async def delete_relationship(self, relationship_id: str) -> bool:
@@ -238,7 +244,7 @@ class GraphService:
                 result = await session.run(cypher, rel_id=relationship_id)
                 record = await result.single()
                 return record['deleted_count'] > 0
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to delete relationship: {e}")
     
     async def find_nodes_by_properties(self, properties: Dict[str, Any], labels: Optional[List[str]] = None) -> List[Dict[str, Any]]:
@@ -272,7 +278,7 @@ class GraphService:
                     node = self._convert_properties_from_neo4j(node)
                     nodes.append(node)
                 return nodes
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to find nodes: {e}")
     
     async def find_spatial_neighbors(self, location_name: str, max_distance_km: float = 100) -> List[Dict[str, Any]]:
@@ -298,7 +304,7 @@ class GraphService:
                     neighbor['distance_km'] = record['distance']
                     neighbors.append(neighbor)
                 return neighbors
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to find spatial neighbors: {e}")
     
     async def execute_cypher_query(self, query: GraphQuery) -> GraphQueryResult:
@@ -322,7 +328,7 @@ class GraphService:
                 }
                 
                 return GraphQueryResult(records=records, summary=summary_info)
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to execute query: {e}")
     
     async def get_graph_stats(self) -> Dict[str, Any]:
@@ -358,7 +364,7 @@ class GraphService:
                     "total_nodes": sum(node_stats.values()),
                     "total_relationships": sum(rel_stats.values())
                 }
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to get graph stats: {e}")
 
 
