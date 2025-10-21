@@ -34,6 +34,11 @@ def _make_point_geojson(lon: float, lat: float, props: Dict[str, Any]) -> bytes:
 
 
 class ReportDisasterTextArgs(BaseModel):
+    """灾情文本上报工具 / Disaster text reporting tool
+
+    用于将用户在地图上右键位置的文字上报记录为一个未挂载的点图层。\
+    Records a text-only disaster report at a clicked lon/lat as an unattached point layer.
+    """
     raw_text: str = Field(..., description="User-submitted disaster description text")
     lon: float = Field(..., description="Longitude of the reported location")
     lat: float = Field(..., description="Latitude of the reported location")
@@ -41,6 +46,11 @@ class ReportDisasterTextArgs(BaseModel):
 
 
 class ReportRoadIssueTextArgs(BaseModel):
+    """道路问题文本上报工具 / Road issue text reporting tool
+
+    记录用户在地图上右键位置的道路问题描述为未挂载点图层。\
+    Records a text-only road issue at a clicked lon/lat as an unattached point layer.
+    """
     raw_text: str = Field(..., description="User-submitted road issue text")
     lon: float = Field(..., description="Longitude of the reported location")
     lat: float = Field(..., description="Latitude of the reported location")
@@ -69,9 +79,22 @@ async def _upload_point_layer(
 async def report_disaster_text(
     args: ReportDisasterTextArgs, mundi: AnwayToolCallMetaArgs
 ) -> Dict[str, Any]:
-    """Create an unattached point layer to record a disaster text report at a clicked location."""
+    """Create an unattached point layer to record a disaster text report at a clicked location.
+
+    输入: 文本、经纬度，时间（"now" 或 ISO8601）。\
+    Output: layer_id（未挂载），供 add_layer_to_map 使用。
+    """
+    # basic validation
+    if not (-180.0 <= args.lon <= 180.0 and -90.0 <= args.lat <= 90.0):
+        return {"status": "error", "error": "无效经纬度范围/Invalid lon/lat"}
+    raw = (args.raw_text or "").strip()
+    if not raw:
+        return {"status": "error", "error": "请输入有效文本/Empty text"}
+    if len(raw) > 4000:
+        raw = raw[:4000]
+
     ts = _now_iso() if args.current_time_iso.lower() == "now" else args.current_time_iso
-    props = {"type": "disaster_report", "raw_text": args.raw_text, "timestamp": ts}
+    props = {"type": "disaster_report", "raw_text": raw, "timestamp": ts}
     gbytes = _make_point_geojson(args.lon, args.lat, props)
 
     layer_name = f"Disaster report {ts[:19].replace('T',' ')}"
@@ -91,9 +114,22 @@ async def report_disaster_text(
 async def report_road_issue_text(
     args: ReportRoadIssueTextArgs, mundi: AnwayToolCallMetaArgs
 ) -> Dict[str, Any]:
-    """Create an unattached point layer to record a road issue text report at a clicked location."""
+    """Create an unattached point layer to record a road issue text report at a clicked location.
+
+    输入: 文本、经纬度，时间（"now" 或 ISO8601）。\
+    Output: layer_id（未挂载），供 add_layer_to_map 使用。
+    """
+    # basic validation
+    if not (-180.0 <= args.lon <= 180.0 and -90.0 <= args.lat <= 90.0):
+        return {"status": "error", "error": "无效经纬度范围/Invalid lon/lat"}
+    raw = (args.raw_text or "").strip()
+    if not raw:
+        return {"status": "error", "error": "请输入有效文本/Empty text"}
+    if len(raw) > 4000:
+        raw = raw[:4000]
+
     ts = _now_iso() if args.current_time_iso.lower() == "now" else args.current_time_iso
-    props = {"type": "road_issue", "raw_text": args.raw_text, "timestamp": ts}
+    props = {"type": "road_issue", "raw_text": raw, "timestamp": ts}
     gbytes = _make_point_geojson(args.lon, args.lat, props)
 
     layer_name = f"Road issue {ts[:19].replace('T',' ')}"
