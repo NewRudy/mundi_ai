@@ -86,6 +86,19 @@ def get_pydantic_tool_calls() -> PydanticToolRegistry:
     except Exception as _e:
         print("[Anway tools] situation tool not loaded:", str(_e))
 
+    # AMap routing tool (optional; only when AMAP_API_KEY is present)
+    try:
+        import os as _os
+if _os.environ.get("AMAP_API_KEY") or _os.environ.get("AMAP_MCP_BASE_URL")
+            from src.tools.amap import plan_evac_amap, PlanEvacAmapArgs
+            registry["plan_evac_amap"] = (
+                plan_evac_amap,
+                PlanEvacAmapArgs,
+                AnwayToolCallMetaArgs,
+            )
+    except Exception as _e:
+        print("[Anway tools] AMap tool not loaded:", str(_e))
+
     return registry
     """Return mapping of tool name -> (async function, ArgModel, AnwayArgModel).
 

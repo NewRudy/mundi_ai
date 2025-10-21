@@ -100,9 +100,35 @@ async def summarize_situation(
             f"要素约 {sum_features(buckets['facility_layers'])}。"
         )
 
+    # simple markdown for reliable rendering in chat
+    md_lines: list[str] = []
+    md_lines.append("**态势总览**")
+    md_lines.append("")
+    md_lines.append(f"- 图层总数：{stats['total_layers']} (点/线/面：{stats['points']}/{stats['lines']}/{stats['polygons']})")
+    if buckets["disaster_layers"]:
+        md_lines.append(f"- 灾害相关图层：{len(buckets['disaster_layers'])}，要素≈{sum_features(buckets['disaster_layers'])}")
+    if buckets["report_layers"]:
+        md_lines.append(f"- 上报类图层：{len(buckets['report_layers'])}，要素≈{sum_features(buckets['report_layers'])}")
+    if buckets["facility_layers"]:
+        md_lines.append(f"- 设施类图层：{len(buckets['facility_layers'])}，要素≈{sum_features(buckets['facility_layers'])}")
+
+    def _mk_list(title: str, names: list[str]) -> list[str]:
+        if not names:
+            return []
+        out = [f"\n**{title}（Top 5）**"]
+        out.extend([f"- {n}" for n in names])
+        return out
+
+    md_lines.extend(_mk_list("灾害相关", [r.get("name") for r in buckets["disaster_layers"]][:5]))
+    md_lines.extend(_mk_list("上报类", [r.get("name") for r in buckets["report_layers"]][:5]))
+    md_lines.extend(_mk_list("设施类", [r.get("name") for r in buckets["facility_layers"]][:5]))
+
+    markdown = "\n".join(md_lines)
+
     return {
         "status": "success",
         "summary": summary_text,
+        "markdown": markdown,
         "stats": stats,
         "disaster_layers": [r.get("name") for r in buckets["disaster_layers"]][:5],
         "report_layers": [r.get("name") for r in buckets["report_layers"]][:5],
