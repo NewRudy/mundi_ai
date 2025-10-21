@@ -52,4 +52,56 @@ def get_pydantic_tool_calls() -> PydanticToolRegistry:
             DownloadFromOpenStreetMapArgs,
             AnwayToolCallMetaArgs,
         )
+
+    # Emergency reporting tools (always available; no schema changes)
+    try:
+        from src.tools.reporting import (
+            report_disaster_text,
+            ReportDisasterTextArgs,
+            report_road_issue_text,
+            ReportRoadIssueTextArgs,
+        )
+        registry["report_disaster_text"] = (
+            report_disaster_text,
+            ReportDisasterTextArgs,
+            AnwayToolCallMetaArgs,
+        )
+        registry["report_road_issue_text"] = (
+            report_road_issue_text,
+            ReportRoadIssueTextArgs,
+            AnwayToolCallMetaArgs,
+        )
+    except Exception as _e:
+        # Keep core tools working even if optional modules are missing
+        print("[Anway tools] reporting tools not loaded:", str(_e))
+
+    # Situation summary tool
+    try:
+        from src.tools.situation import summarize_situation, SummarizeSituationArgs
+        registry["summarize_situation"] = (
+            summarize_situation,
+            SummarizeSituationArgs,
+            AnwayToolCallMetaArgs,
+        )
+    except Exception as _e:
+        print("[Anway tools] situation tool not loaded:", str(_e))
+
+    return registry
+    """Return mapping of tool name -> (async function, ArgModel, AnwayArgModel).
+
+    Defined as a FastAPI dependency to allow overrides in tests or different deployments.
+    """
+    registry: dict[str, tuple[ToolFn, type[BaseModel], type[BaseModel]]] = {
+        "zoom_to_bounds": (
+            zoom_to_bounds,
+            ZoomToBoundsArgs,
+            AnwayToolCallMetaArgs,
+        ),
+    }
+    if has_openstreetmap_api_key():
+        registry["download_from_openstreetmap"] = (
+            osm_download_tool,
+            DownloadFromOpenStreetMapArgs,
+            AnwayToolCallMetaArgs,
+        )
     return registry

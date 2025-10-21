@@ -37,6 +37,7 @@ import LayerList from '@/components/LayerList';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import VersionVisualization from '@/components/VersionVisualization';
 import type { ErrorEntry, UploadingFile } from '../lib/frontend-types';
 import type {
@@ -241,6 +242,7 @@ export default function MapLibreMap({
   }>({});
   const [loadingSourceIds, setLoadingSourceIds] = useState<Set<string>>(new Set());
   const [assistantExpanded, setAssistantExpanded] = useState(false);
+  const [ctxLngLat, setCtxLngLat] = useState<{ lng: number; lat: number } | null>(null);
 
   const { data: basemapsData } = useQuery({
     queryKey: ['basemaps', 'available'],
@@ -1148,7 +1150,78 @@ export default function MapLibreMap({
   return (
     <>
       <div className={`relative map-container ${className} grow max-h-screen`} style={{ width, height }}>
-        <div ref={mapContainerRef} style={{ width: '100%', height: '100%', minHeight: '100vh' }} className="bg-slate-950" />
+        {/* Overview button */}
+        <button
+          className="absolute z-30 top-3 left-3 px-3 py-1 text-xs rounded bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-700 border"
+          onClick={() => {
+            sendMessage('请给出当前态势总览（t=now）。');
+          }}
+        >
+          态势总览
+        </button>
+
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              ref={mapContainerRef}
+              onContextMenu={(e) => {
+                const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+                const px = [e.clientX - rect.left, e.clientY - rect.top] as [number, number];
+                const map = mapRef.current;
+                if (map) {
+                  const ll = map.unproject(px as any);
+                  setCtxLngLat({ lng: ll.lng, lat: ll.lat });
+                }
+              }}
+              style={{ width: '100%', height: '100%', minHeight: '100vh' }}
+              className="bg-slate-950"
+            />
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem
+              onClick={() => {
+                const c = ctxLngLat;
+                if (!c) return;
+                sendMessage(`从经纬度 ${c.lng.toFixed(6)},${c.lat.toFixed(6)} 出发，步行前往最近的学校/广场/空地，返回主/备路线并显示在地图上。时间=t=now。`);
+              }}
+            >
+              从此处出发（步行）
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const c = ctxLngLat;
+                if (!c) return;
+                sendMessage(`从经纬度 ${c.lng.toFixed(6)},${c.lat.toFixed(6)} 出发，驾车前往最近的学校/广场/空地，返回主/备路线并显示在地图上。时间=t=now。`);
+              }}
+            >
+              从此处出发（驾车）
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const c = ctxLngLat;
+                if (!c) return;
+                const txt = window.prompt('请输入灾情描述（文本）');
+                if (txt && txt.trim()) {
+                  sendMessage(`在经纬度 ${c.lng.toFixed(6)},${c.lat.toFixed(6)} 上报灾情：${txt.trim()}。时间=t=now。`);
+                }
+              }}
+            >
+              上报灾情（文本）
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                const c = ctxLngLat;
+                if (!c) return;
+                const txt = window.prompt('请输入道路问题描述（文本）');
+                if (txt && txt.trim()) {
+                  sendMessage(`在经纬度 ${c.lng.toFixed(6)},${c.lat.toFixed(6)} 上报道路问题：${txt.trim()}。时间=t=now。`);
+                }
+              }}
+            >
+              上报道路问题（文本）
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
 
         {/* Render the attribute table if showAttributeTable is true */}
         {selectedLayer && (

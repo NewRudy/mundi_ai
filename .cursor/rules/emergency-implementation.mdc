@@ -1,0 +1,43 @@
+# Emergency features plan (minimal, zero-schema-change)
+
+## Scope and constraints
+- No DB schema changes or Alembic migrations.
+- All outputs (routes/reports) materialize as unattached vector layers via internal_upload_layer; styling auto-generated.
+- Implement as pydantic tools only; reuse existing chat/tool pipeline and WebSocket UX.
+- Time dimension: current-time only; no history timeline/tables.
+- Neo4j optional/lightweight; not required for MVP.
+
+## Backend tools (new)
+1) reporting
+- report_disaster_text(raw_text, lon, lat, current_time?) → create point layer named "Disaster report <ts>", unattached; properties: raw_text, timestamp, type='disaster_report'. Return layer_id + kue_instructions to add to map.
+- report_road_issue_text(raw_text, lon, lat, current_time?) → create point layer named "Road issue <ts>", unattached; properties: raw_text, timestamp, type='road_issue'.
+
+2) situation
+- summarize_situation(current_time_iso) → derive summary from current map's layers only (no queries): totals by geometry_type; keyword buckets: disasters (flood/earthquake/灾/洪/震), reports (Report/上报/Issue), facilities (shelter/school/square/hospital/fire/医院/学校/广场/消防/避难所). Returns structured stats + concise text.
+
+3) routing (later)
+- plan_evac_amap(origin_lon, origin_lat, mode: walking|driving, dest_ftype?, current_time?) → call AMap v5, multi-route; pick by duration→distance; decode to LineString and upload as unattached layer; only register when AMAP_API_KEY present. Not included in initial execution.
+
+## Frontend (minimal)
+- MapLibreMap right-click menu items:
+  - "从此处出发（步行）", "从此处出发（驾车)" → send chat text including lon/lat + mode; LLM invokes plan_evac_amap later.
+  - "上报灾情（文本）", "上报道路问题（文本）" → prompt text; send chat with lon/lat + text; LLM invokes reporting tools.
+- "态势总览" button → send chat message asking for overview; LLM invokes summarize_situation; show result in chat pane (no new page).
+
+## Error handling & UX
+- Tools return clear status + message; for layer-creating tools include kue_instructions to call add_layer_to_map.
+- No geometry buffering or avoid-polygons in MVP; plain AMap routes later.
+- Cache/limits handled inside routing tool; not relevant to D1–D4.
+
+## Milestones (work days)
+- D1: reporting tools
+- D2: situation tool
+- D3: frontend right-click menu + overview button (reusing sendMessage only)
+- D4: polish (copy, kue hints, logging)
+- D5: AMap routing tool (register behind AMAP_API_KEY)
+- D6: buffer/fixes
+
+## Registration
+- Add to src/dependencies/pydantic_tools.get_pydantic_tool_calls():
+  - report_disaster_text, report_road_issue_text, summarize_situation (always).
+  - plan_evac_amap only when AMAP_API_KEY present (last stage).
