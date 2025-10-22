@@ -64,6 +64,9 @@ services:
       # - OPENAI_API_KEY=AIzaSyDVsXIp4X1XiRMnPgPnruyJoJ11g5kGi5Q
       # - OPENAI_MODEL=gemini-2.5-pro
       #-  MUNDI_EMBED_ALLOWED_ORIGINS=http://localhost:4321
+
+      - AMAP_API_KEY=ed470e782c3bbbb19727eb00544c8084
+
     command: uvicorn src.wsgi:app --host 0.0.0.0 --port 8000 --log-level debug --access-log --use-colors
     volumes:
       - ./src:/app/src
@@ -130,8 +133,8 @@ services:
       - NEO4J_dbms_security_procedures_unrestricted=apoc.*
       - NEO4J_dbms_security_procedures_allowlist=apoc.*
     ports:
-      - '7474:7474'  # Neo4j Browser
-      - '7687:7687'  # Bolt protocol
+      - '7474:7474' # Neo4j Browser
+      - '7687:7687' # Bolt protocol
     volumes:
       - ./data/neo4j:/data
       - ./data/neo4j-logs:/logs

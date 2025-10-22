@@ -89,7 +89,7 @@ def get_pydantic_tool_calls() -> PydanticToolRegistry:
     # AMap routing tool (optional; only when AMAP_API_KEY is present)
     try:
         import os as _os
-if _os.environ.get("AMAP_API_KEY") or _os.environ.get("AMAP_MCP_BASE_URL")
+        if _os.environ.get("AMAP_API_KEY") or _os.environ.get("AMAP_MCP_BASE_URL"):
             from src.tools.amap import plan_evac_amap, PlanEvacAmapArgs
             registry["plan_evac_amap"] = (
                 plan_evac_amap,
@@ -99,22 +99,4 @@ if _os.environ.get("AMAP_API_KEY") or _os.environ.get("AMAP_MCP_BASE_URL")
     except Exception as _e:
         print("[Anway tools] AMap tool not loaded:", str(_e))
 
-    return registry
-    """Return mapping of tool name -> (async function, ArgModel, AnwayArgModel).
-
-    Defined as a FastAPI dependency to allow overrides in tests or different deployments.
-    """
-    registry: dict[str, tuple[ToolFn, type[BaseModel], type[BaseModel]]] = {
-        "zoom_to_bounds": (
-            zoom_to_bounds,
-            ZoomToBoundsArgs,
-            AnwayToolCallMetaArgs,
-        ),
-    }
-    if has_openstreetmap_api_key():
-        registry["download_from_openstreetmap"] = (
-            osm_download_tool,
-            DownloadFromOpenStreetMapArgs,
-            AnwayToolCallMetaArgs,
-        )
     return registry
