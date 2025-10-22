@@ -65,7 +65,7 @@ services:
       # - OPENAI_MODEL=gemini-2.5-pro
       #-  MUNDI_EMBED_ALLOWED_ORIGINS=http://localhost:4321
 
-      - AMAP_API_KEY=ed470e782c3bbbb19727eb00544c8084
+      # - AMAP_API_KEY=ed470e782c3bbbb19727eb00544c8084
 
     command: uvicorn src.wsgi:app --host 0.0.0.0 --port 8000 --log-level debug --access-log --use-colors
     volumes:

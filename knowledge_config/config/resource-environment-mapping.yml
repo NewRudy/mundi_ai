@@ -1,0 +1,248 @@
+# 资源与环境类实体映射配置
+# 定义资源与环境相关表与本体节点的映射关系
+
+version: '1.0'
+description: '资源与环境类实体映射配置 - Resource and Environment (001_003_005)'
+
+mappings:
+  # 1. 流域边界表映射
+  - tableName: 'basin_perimeter'
+    schema: 'hazard_affected_body'
+    entityType: 'BasinPerimeter'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '流域边界 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 1
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 2. 水库表映射
+  - tableName: 'reservoir'
+    schema: 'hazard_affected_body'
+    entityType: 'Reservoir'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '水库 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 2
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 3. 湖泊表映射
+  - tableName: 'lake'
+    schema: 'hazard_affected_body'
+    entityType: 'Lake'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '湖泊 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 3
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 4. 水系网络表映射
+  - tableName: 'water_network'
+    schema: 'hazard_affected_body'
+    entityType: 'WaterNetwork'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '水系网络 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 4
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 5. 文物保护区域表映射
+  - tableName: 'cultural_protection_area'
+    schema: 'hazard_affected_body'
+    entityType: 'CulturalProtectionArea'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '文物保护区域 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 5
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      gb: 'gb'
+      name: 'name'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      shape_leng: 'shapeLength'
+      shape_area: 'shapeArea'
+      ysdm: 'ysdm'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 6. 流域省份表映射
+  - tableName: 'basin_province'
+    schema: 'hazard_affected_body'
+    entityType: 'BasinProvince'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '流域省份 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 6
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      eng_name: 'engName'
+      var_name: 'varName'
+      first_gid: 'firstGid'
+      first_type: 'firstType'
+      year: 'year'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      shape_length: 'shapeLength'
+      shape_area: 'shapeArea'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 7. 流域城市表映射
+  - tableName: 'basin_city'
+    schema: 'hazard_affected_body'
+    entityType: 'BasinCity'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '流域城市 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 7
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      code: 'code'
+      eng_name: 'engName'
+      var_name: 'varName'
+      name_2: 'name2'
+      var_name2: 'varName2'
+      name_1: 'name1'
+      var_name1: 'varName1'
+      year: 'year'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      shape_length: 'shapeLength'
+      shape_area: 'shapeArea'
+      higher_division_id: 'higherDivisionId'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 8. 流域县区表映射
+  - tableName: 'basin_county'
+    schema: 'hazard_affected_body'
+    entityType: 'BasinCounty'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '流域县区 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 8
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      code: 'code'
+      eng_name: 'engName'
+      var_name: 'varName'
+      name_3: 'name3'
+      var_name3: 'varName3'
+      name_2: 'name2'
+      var_name2: 'varName2'
+      name_1: 'name1'
+      var_name1: 'varName1'
+      year: 'year'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      shape_length: 'shapeLength'
+      shape_area: 'shapeArea'
+      higher_division_id: 'higherDivisionId'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 9. 流域乡镇表映射
+  - tableName: 'basin_town'
+    schema: 'hazard_affected_body'
+    entityType: 'BasinTown'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '流域乡镇 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 9
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      gml_id: 'gmlId'
+      name: 'name'
+      layer: 'layer'
+      code: 'code'
+      grade: 'grade'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      shape_leng: 'shapeLength'
+      shape_area: 'shapeArea'
+      higher_division_id: 'higherDivisionId'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 10. 流域村庄表映射
+  - tableName: 'basin_village'
+    schema: 'hazard_affected_body'
+    entityType: 'BasinVillage'
+    ontologyNodeId: '001_003_005'
+    ontologyEnglishName: 'Resource and Environment'
+    description: '流域村庄 - 映射到资源与环境本体节点'
+    enabled: true
+    priority: 10
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      objectid_1: 'objectId1'
+      pac: 'pac'
+      name: 'name'
+      dispname: 'dispName'
+      fullname: 'fullName'
+      uppac: 'upPac'
+      upname: 'upName'
+      bz: 'bz'
+      xh: 'xh'
+      x: 'x'
+      y: 'y'
+      shape_area: 'shapeArea'
+      shape_len: 'shapeLength'
+      objectid: 'objectId'
+      higher_division_id: 'higherDivisionId'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'

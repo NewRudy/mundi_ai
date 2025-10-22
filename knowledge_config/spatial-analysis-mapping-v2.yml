@@ -1,0 +1,100 @@
+version: '2.0'
+description: 'Enhanced batch spatial analysis configuration'
+
+globalDefaults:
+  defaultBatchSize: 1000
+  defaultConcurrentThreads: 4
+  defaultRelationStrengthThreshold: 0.1
+  defaultMaxRelationsPerEntity: 100
+  defaultEnableRealTimeUpdates: true
+  defaultEnableSpatialIndexOptimization: true
+
+batchProcessing:
+  enableConfigDriven: true
+  enableDynamicAnalysis: true
+  maxDynamicRequestsPerMinute: 10
+  defaultTimeoutMinutes: 30
+  defaultBatchSize: 5000
+  maxConcurrentBatches: 4
+  memoryThresholdPercent: 80
+  enableStreamingResults: true
+  enableQueryOptimization: true
+  minBatchSize: 100
+  maxBatchSize: 10000
+  enableAdaptiveBatchSizing: true
+  enableResourceMonitoring: true
+  maxCpuUsagePercent: 80
+
+mappings:
+  # 溃坝淹没房屋关系分析
+  - analysisName: 'dam_break_flood_analysis'
+    analysisType: 'BUFFER_INTERSECT'
+    sourceEntityType: 'DamBreak'
+    targetEntityType: 'Building'
+    relationType: 'SPATIAL_FLOOD_AFFECTS'
+    description: '计算溃坝500m缓冲区内的房屋淹没关系'
+    enabled: true
+    priority: 1
+    maxRelationsPerEntity: 200
+    distanceThreshold: 500.0
+    relationStrengthThreshold: 0.1
+    batchSize: 1000
+    concurrentThreads: 4
+    enableRealTimeUpdates: true
+    enableSpatialIndexOptimization: true
+    batchProcessing:
+      enabled: true
+      batchSize: 10000
+      chunkByGeography: true
+      persistResults: true
+      maxRetries: 3
+      retryDelayMs: 1000
+      timeoutMinutes: 60
+      minBatchSize: 100
+      maxBatchSize: 10000
+      enableAdaptiveBatchSizing: true
+      enableResourceMonitoring: true
+    parameters:
+      bufferRadius: 500.0
+      maxDistance: 500.0
+      minIntersectionArea: 10.0
+      floodSimulationMethod: 'buffer_analysis'
+      updateBuildingFields: true
+      floodRiskLevels:
+        high: 100.0
+        medium: 300.0
+        low: 500.0
+
+  # 房屋最近设施关系分析
+  - analysisName: 'building_nearest_facility_analysis'
+    analysisType: 'NEAREST_NEIGHBOR'
+    sourceEntityType: 'Building'
+    targetEntityType: 'Facility'
+    relationType: 'SPATIAL_NEAREST_FACILITY'
+    description: '计算房屋到最近设施的空间关系'
+    enabled: true
+    priority: 2
+    maxRelationsPerEntity: 50
+    distanceThreshold: 10000.0
+    relationStrengthThreshold: 0.05
+    batchSize: 500
+    concurrentThreads: 2
+    enableRealTimeUpdates: true
+    enableSpatialIndexOptimization: true
+    batchProcessing:
+      enabled: true
+      batchSize: 5000
+      chunkByGeography: false
+      persistResults: true
+      maxRetries: 2
+      retryDelayMs: 500
+      timeoutMinutes: 30
+      minBatchSize: 100
+      maxBatchSize: 5000
+      enableAdaptiveBatchSizing: true
+      enableResourceMonitoring: true
+    parameters:
+      maxDistance: 10000.0
+      facilityTypes: ['Hospital', 'School', 'PoliceStation', 'FireStation']
+      nearestCount: 3
+      distanceWeight: 1.0

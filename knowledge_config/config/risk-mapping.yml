@@ -1,0 +1,116 @@
+# 风险类实体映射配置
+# 定义风险相关表与本体节点的映射关系
+
+version: '1.0'
+description: '风险类实体映射配置 - Geological Risk (001_002_001) & Engineering Risk (001_002_002)'
+
+mappings:
+  # ==================== 地质风险类 (Geological Risk - 001_002_001) ====================
+
+  # 1. 边坡风险点表映射
+  - tableName: 'slope_point'
+    schema: 'disaster_risk'
+    entityType: 'SlopePoint'
+    ontologyNodeId: '001_002_001_002'
+    ontologyEnglishName: 'Geological Risk'
+    description: '边坡风险点 - 映射到地质风险本体节点'
+    enabled: true
+    priority: 1
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      disaster_body: 'disasterBody'
+      field_code: 'fieldCode'
+      indoor_code: 'indoorCode'
+      province: 'province'
+      city: 'city'
+      county: 'county'
+      township: 'township'
+      geographic_position: 'geographicPosition'
+      longitude: 'longitude'
+      latitude: 'latitude'
+      x: 'x'
+      y: 'y'
+      z: 'z'
+      slope_top_maximum: 'slopeTopMaximum'
+      slope_bottom_maximum: 'slopeBottomMaximum'
+      treatment_status: 'treatmentStatus'
+      groundwater: 'groundwater'
+      structural_part: 'structuralPart'
+      current_stability: 'currentStability'
+      future_changes: 'futureChanges'
+      threatened_people: 'threatenedPeople'
+      threatened_property: 'threatenedProperty'
+      disaster_level: 'disasterLevel'
+      risk_level: 'riskLevel'
+      prevention_facility: 'preventionFacility'
+      hazard_point: 'hazardPoint'
+      monitoring_facility: 'monitoringFacility'
+      destroyed_buildings: 'destroyedBuildings'
+      destroyed_roads: 'destroyedRoads'
+      destroyed_canals: 'destroyedCanals'
+      guid: 'guid'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # # 2. 灾害风险表映射
+  # - tableName: 'disaster_risks'
+  #   schema: 'public'
+  #   entityType: 'DisasterRisk'
+  #   ontologyNodeId: '001_002_001'
+  #   ontologyEnglishName: 'Geological Risk'
+  #   description: '灾害风险 - 映射到地质风险本体节点'
+  #   enabled: true
+  #   priority: 2
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     affected_area: 'affectedArea'
+  #     level: 'level'
+  #     location: 'location'
+  #     name: 'name'
+  #     start_time: 'startTime'
+  #     type: 'type'
+
+  # # 3. 灾害风险详情表映射
+  # - tableName: 'disaster_risk_details'
+  #   schema: 'public'
+  #   entityType: 'DisasterRiskDetail'
+  #   ontologyNodeId: '001_002_001'
+  #   ontologyEnglishName: 'Geological Risk'
+  #   description: '灾害风险详情 - 映射到地质风险本体节点'
+  #   enabled: true
+  #   priority: 3
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     affectedpopulations: 'affectedPopulations'
+  #     description: 'description'
+  #     images: 'images'
+  #     videos: 'videos'
+  #     disaster_risk_id: 'disasterRiskId'
+
+  # ==================== 工程风险类 (Engineering Risk - 001_002_002) ====================
+
+  # 4. 溃坝风险表映射
+  - tableName: 'dam_break'
+    schema: 'disaster_risk'
+    entityType: 'DamBreak'
+    ontologyNodeId: '001_002_002'
+    ontologyEnglishName: 'Engineering Risk'
+    description: '溃坝风险 - 映射到工程风险本体节点'
+    enabled: true
+    priority: 4
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      objectid_1: 'objectId1'
+      gridcode: 'gridCode'
+      bz: 'bz'
+      objectid: 'objectId'
+      shape_leng: 'shapeLength'
+      shape_area: 'shapeArea'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'

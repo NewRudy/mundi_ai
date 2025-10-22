@@ -1,0 +1,190 @@
+# 公共服务设施类实体映射配置
+# 定义公共服务设施相关表与本体节点的映射关系
+
+version: '1.0'
+description: '公共服务设施类实体映射配置 - Public Service Facilities (001_003_004)'
+
+mappings:
+  # 1. 消防站表映射
+  - tableName: 'fire_station'
+    schema: 'hazard_affected_body'
+    entityType: 'FireStation'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '消防站 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 1
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 2. 医院表映射
+  - tableName: 'hospital'
+    schema: 'hazard_affected_body'
+    entityType: 'Hospital'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '医院 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 2
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 3. 学校表映射
+  - tableName: 'school'
+    schema: 'hazard_affected_body'
+    entityType: 'School'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '学校 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 3
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 4. 宗教设施表映射
+  - tableName: 'religious_facility'
+    schema: 'hazard_affected_body'
+    entityType: 'ReligiousFacility'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '宗教设施 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 4
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      gb: 'gb'
+      name: 'name'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      shape_leng: 'shapeLength'
+      shape_area: 'shapeArea'
+      ysdm: 'ysdm'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 5. 运动场表映射
+  - tableName: 'sports_ground'
+    schema: 'hazard_affected_body'
+    entityType: 'SportsGround'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '运动场 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 5
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 6. 超市表映射
+  - tableName: 'supermarket'
+    schema: 'hazard_affected_body'
+    entityType: 'Supermarket'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '超市 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 6
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      ysmc: 'ysmc'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 7. 公墓表映射
+  - tableName: 'cemetery'
+    schema: 'hazard_affected_body'
+    entityType: 'Cemetery'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '公墓 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 7
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 8. 公园表映射
+  - tableName: 'park'
+    schema: 'hazard_affected_body'
+    entityType: 'Park'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '公园 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 8
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 9. 旅游景点表映射
+  - tableName: 'tourist_attraction'
+    schema: 'hazard_affected_body'
+    entityType: 'TouristAttraction'
+    ontologyNodeId: '001_003_004'
+    ontologyEnglishName: 'Public Service Facilities'
+    description: '旅游景点 - 映射到公共服务设施本体节点'
+    enabled: true
+    priority: 9
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'

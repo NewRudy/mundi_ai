@@ -1,0 +1,73 @@
+# 房屋建筑类实体映射配置
+# 定义房屋建筑相关表与本体节点的映射关系
+
+version: '1.0'
+description: '房屋建筑类实体映射配置 - House (001_003_002)'
+
+mappings:
+  # 1. 房屋建筑表映射
+  - tableName: 'building'
+    schema: 'hazard_affected_body'
+    entityType: 'Building'
+    ontologyNodeId: '001_003_002'
+    ontologyEnglishName: 'House'
+    description: '房屋建筑 - 映射到房屋本体节点'
+    enabled: true
+    priority: 1
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      objectid: 'objectId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      land_type: 'landType'
+      flood_affected: 'floodAffected'
+      flood_distance: 'floodDistance'
+      flood_risk_level: 'floodRiskLevel'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 2. 建筑表映射
+#  - tableName: 'architecture'
+#    schema: 'hazard_affected_body'
+#    entityType: 'Architecture'
+#    ontologyNodeId: '001_003_002'
+#    ontologyEnglishName: 'House'
+#    description: '建筑 - 映射到房屋本体节点'
+#    enabled: true
+#    priority: 2
+#    fieldMappings:
+#      id: 'id'
+#      neo4j_node_id: 'neo4jNodeId'
+#      fid: 'fid'
+#      height: 'height'
+#      start_time: 'startTime'
+#      end_time: 'endTime'
+#      status: 'status'
+
+  # 3. 居民点表映射
+  - tableName: 'settlement_place'
+    schema: 'hazard_affected_body'
+    entityType: 'SettlementPlace'
+    ontologyNodeId: '001_003_002'
+    ontologyEnglishName: 'House'
+    description: '居民点 - 映射到房屋本体节点'
+    enabled: true
+    priority: 3
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      class: 'class'
+      name: 'name'
+      pinyin: 'pinyin'
+      gnid: 'gnid'
+      xzname: 'xzName'
+      objectid: 'objectId'
+      gridcode: 'gridCode'
+      uninhabitable_reason: 'uninhabitableReason'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'

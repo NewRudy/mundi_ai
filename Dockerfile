@@ -1,5 +1,6 @@
 # tippecanoe
-FROM node:20-bookworm-slim AS tippecanoe-builder
+ARG NODE_IMAGE=node:20-bookworm-slim
+FROM ${NODE_IMAGE} AS tippecanoe-builder
 ARG TIPPECANOE_TAG=2.77.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git build-essential libsqlite3-dev zlib1g-dev  ca-certificates \
@@ -11,7 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # build gdal from source to get version later than what debian offers
-FROM node:20-bookworm-slim AS gdal-builder
+FROM ${NODE_IMAGE} AS gdal-builder
 ARG GDAL_VERSION=3.11.3
 WORKDIR /tmp
 
@@ -43,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /tmp/gdal-${GDAL_VERSION}*
 
 # maplibre
-FROM node:20-bookworm-slim AS maplibre-builder
+FROM ${NODE_IMAGE} AS maplibre-builder
 ARG MAPLIBRE_TAG=node-v6.1.0
 WORKDIR /opt
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
@@ -57,7 +58,7 @@ WORKDIR /opt/maplibre-native/platform/node
 RUN npm ci && npm pack --silent
 
 # base runtime
-FROM node:20-bookworm-slim AS base
+FROM ${NODE_IMAGE} AS base
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libcairo2-dev libgles2-mesa-dev libgbm-dev \
         libuv1-dev libprotobuf-dev xserver-xorg-core xvfb x11-utils dbus xauth \
@@ -93,27 +94,24 @@ RUN --mount=type=cache,target=/var/cache/apt \
     && tar -xzf /tmp/pmtiles.tar.gz -C /usr/local/bin && chmod +x /usr/local/bin/pmtiles \
     && rm /tmp/pmtiles.tar.gz
 
-# python/uv
+# python/venv
 FROM tools AS python-builder
-COPY --from=ghcr.io/astral-sh/uv:0.4.9 /uv /bin/uv
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy
-
-# Install development headers for building Python packages
+# Install development headers and venv for building Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3-dev build-essential \
+        python3-dev build-essential python3-venv \
         libdbus-1-dev libdbus-glib-1-dev pkg-config \
         libgirepository1.0-dev libcairo2-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY requirements.txt /app/
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv venv && \
-    uv pip install -r requirements.txt && \
-    uv pip install hyperdx-opentelemetry
+RUN python3 -m venv /app/.venv \
+    && /app/.venv/bin/pip install -U pip \
+    && /app/.venv/bin/pip install -r requirements.txt \
+    && /app/.venv/bin/pip install hyperdx-opentelemetry
 
 # frontend app
-FROM node:20-bookworm-slim AS frontend-builder
+FROM ${NODE_IMAGE} AS frontend-builder
 WORKDIR /app/frontendts
 COPY frontendts/package*.json ./
 RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps
@@ -165,7 +163,6 @@ RUN --mount=type=cache,target=/root/.npm \
 
 # Copy Python virtual environment from builder
 COPY --from=python-builder /app/.venv /app/.venv
-COPY --from=ghcr.io/astral-sh/uv:0.4.9 /uv /bin/uv
 ENV PATH="/app/.venv/bin:$PATH"
 
 COPY --from=lastools-builder /usr/local/bin/las2las64 /usr/local/bin/las2las64

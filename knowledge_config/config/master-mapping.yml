@@ -1,0 +1,65 @@
+# 主映射配置文件
+# 引用所有分类的实体映射配置文件
+
+version: '1.0'
+description: '电站应急时空知识图谱主映射配置 - 引用所有分类配置文件'
+
+# 配置文件引用列表
+configFiles:
+  # 基础设施类实体映射
+  - path: 'infrastructure-mapping.yml'
+    description: '基础设施类实体映射配置'
+    enabled: true
+
+  # 公共服务设施类实体映射
+  - path: 'public-service-facilities-mapping.yml'
+    description: '公共服务设施类实体映射配置'
+    enabled: true
+
+  # 房屋建筑类实体映射
+  - path: 'house-mapping.yml'
+    description: '房屋建筑类实体映射配置'
+    enabled: true
+
+  # 资源与环境类实体映射
+  - path: 'resource-environment-mapping.yml'
+    description: '资源与环境类实体映射配置'
+    enabled: true
+
+  # 地质灾害类实体映射
+  - path: 'geological-disaster-mapping.yml'
+    description: '地质灾害类实体映射配置'
+    enabled: true
+
+  # 风险类实体映射
+  - path: 'risk-mapping.yml'
+    description: '风险类实体映射配置'
+    enabled: true
+
+  # 应急管理类实体映射
+  - path: 'emergency-management-mapping.yml'
+    description: '应急管理类实体映射配置'
+    enabled: true
+
+# 全局配置
+globalConfig:
+  # 默认本体节点ID
+  defaultOntologyNodeId: '001_003_003'
+
+  # 默认本体英文名称
+  defaultOntologyEnglishName: 'Infrastructure'
+
+  # 是否启用全局同步
+  enableGlobalSync: true
+
+  # 同步批次大小
+  batchSize: 1000
+
+  # 同步间隔（毫秒）
+  syncInterval: 5000
+
+  # 是否启用日志记录
+  enableLogging: true
+
+  # 日志级别
+  logLevel: 'INFO'

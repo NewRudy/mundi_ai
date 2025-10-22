@@ -1,0 +1,209 @@
+# 应急管理类实体映射配置
+# 定义应急管理相关表与本体节点的映射关系
+
+version: '1.0'
+description: '应急管理类实体映射配置 - Emergency Management'
+
+mappings:
+  # ==================== 应急响应类 (Emergency Response - 001_004_001) ====================
+
+  # # 1. 应急事件表映射
+  # - tableName: 'emergency_events'
+  #   schema: 'public'
+  #   entityType: 'EmergencyEvent'
+  #   ontologyNodeId: '001_004_001'
+  #   ontologyEnglishName: 'Emergency Response'
+  #   description: '应急事件 - 映射到应急响应本体节点'
+  #   enabled: true
+  #   priority: 1
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     create_time: 'createTime'
+  #     name: 'name'
+  #     status: 'status'
+  #     disaster_risk_id: 'disasterRiskId'
+  #     emergency_event_id: 'emergencyEventId'
+
+  # # 2. 应急事件详情表映射
+  # - tableName: 'emergency_event_details'
+  #   schema: 'public'
+  #   entityType: 'EmergencyEventDetail'
+  #   ontologyNodeId: '001_004_001'
+  #   ontologyEnglishName: 'Emergency Response'
+  #   description: '应急事件详情 - 映射到应急响应本体节点'
+  #   enabled: true
+  #   priority: 2
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     description: 'description'
+  #     images: 'images'
+  #     responseteams: 'responseTeams'
+  #     videos: 'videos'
+  #     emergency_event_id: 'emergencyEventId'
+
+  # # ==================== 应急通信类 (Emergency Communication - 001_004_008) ====================
+
+  # # 3. 联系人表映射
+  # - tableName: 'contacts'
+  #   schema: 'public'
+  #   entityType: 'Contact'
+  #   ontologyNodeId: '001_004_008'
+  #   ontologyEnglishName: 'Emergency Communication'
+  #   description: '联系人 - 映射到应急通信本体节点'
+  #   enabled: true
+  #   priority: 3
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     created_at: 'createdAt'
+  #     department: 'department'
+  #     email: 'email'
+  #     name: 'name'
+  #     phone: 'phone'
+  #     updated_at: 'updatedAt'
+
+  # # 4. 联系人消息表映射
+  # - tableName: 'contact_messages'
+  #   schema: 'public'
+  #   entityType: 'ContactMessage'
+  #   ontologyNodeId: '001_004_008'
+  #   ontologyEnglishName: 'Emergency Communication'
+  #   description: '联系人消息 - 映射到应急通信本体节点'
+  #   enabled: true
+  #   priority: 4
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     content: 'content'
+  #     send_time: 'sendTime'
+  #     status: 'status'
+  #     title: 'title'
+  #     contact_id: 'contactId'
+
+  # ==================== 应急物资和装备配置类 (Emergency Material and Equipment Configuration - 001_004_009_001) ====================
+
+  # 5. 安置点表映射
+  - tableName: 'temporary_shelter'
+    schema: 'emergency_management'
+    entityType: 'TemporaryShelter'
+    ontologyNodeId: '001_004_009_001'
+    ontologyEnglishName: 'Emergency Material and Equipment Configuration'
+    description: '安置点 - 映射到应急物资和装备配置本体节点'
+    enabled: true
+    priority: 5
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      shelter_id: 'shelterId'
+      shelter_name: 'shelterName'
+      facility_type: 'facilityType'
+      facility_type_cn: 'facilityTypeCn'
+      pre_impact_cap: 'preImpactCap'
+      post_impact_cap: 'postImpactCap'
+      current_occupancy: 'currentOccupancy'
+      shelter_status: 'shelterStatus'
+      shelter_status_cn: 'shelterStatusCn'
+      contact_person: 'contactPerson'
+      contact_phone: 'contactPhone'
+      contact_email: 'contactEmail'
+      address: 'address'
+      city: 'city'
+      state: 'state'
+      country: 'country'
+      latitude: 'latitude'
+      longitude: 'longitude'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 6. 救援物资点表映射
+  - tableName: 'rescue_site'
+    schema: 'emergency_management'
+    entityType: 'RescueSite'
+    ontologyNodeId: '001_004_009_001'
+    ontologyEnglishName: 'Emergency Material and Equipment Configuration'
+    description: '救援物资点 - 映射到应急物资和装备配置本体节点'
+    enabled: true
+    priority: 6
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      rescue_id: 'rescueId'
+      rescue_name: 'rescueName'
+      rescue_type: 'rescueType'
+      rescue_type_cn: 'rescueTypeCn'
+      rescue_level: 'rescueLevel'
+      rescue_level_cn: 'rescueLevelCn'
+      rescue_status: 'rescueStatus'
+      rescue_status_cn: 'rescueStatusCn'
+      personnel_total: 'personnelTotal'
+      personnel_available: 'personnelAvailable'
+      medical_staff: 'medicalStaff'
+      firefighters: 'firefighters'
+      police_officers: 'policeOfficers'
+      volunteers: 'volunteers'
+      ambulances: 'ambulances'
+      fire_trucks: 'fireTrucks'
+      police_vehicles: 'policeVehicles'
+      helicopters: 'helicopters'
+      boats: 'boats'
+      contact_person: 'contactPerson'
+      contact_phone: 'contactPhone'
+      contact_email: 'contactEmail'
+      address: 'address'
+      city: 'city'
+      state: 'state'
+      country: 'country'
+      latitude: 'latitude'
+      longitude: 'longitude'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # # 7. 资源表映射
+  # - tableName: 'resources'
+  #   schema: 'public'
+  #   entityType: 'Resource'
+  #   ontologyNodeId: '001_004_009_001'
+  #   ontologyEnglishName: 'Emergency Material and Equipment Configuration'
+  #   description: '资源 - 映射到应急物资和装备配置本体节点'
+  #   enabled: true
+  #   priority: 7
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     contact_phone: 'contactPhone'
+  #     manager: 'manager'
+  #     model: 'model'
+  #     name: 'name'
+  #     quantity: 'quantity'
+  #     serial_number: 'serialNumber'
+  #     storage_location: 'storageLocation'
+
+  # # 8. 调度任务表映射
+  # - tableName: 'schedule_tasks'
+  #   schema: 'public'
+  #   entityType: 'ScheduleTask'
+  #   ontologyNodeId: '001_004_009_001'
+  #   ontologyEnglishName: 'Emergency Material and Equipment Configuration'
+  #   description: '调度任务 - 映射到应急物资和装备配置本体节点'
+  #   enabled: true
+  #   priority: 8
+  #   fieldMappings:
+  #     id: 'id'
+  #     neo4j_node_id: 'neo4jNodeId'
+  #     current_position: 'currentPosition'
+  #     end_point_name: 'endPointName'
+  #     end_point_position: 'endPointPosition'
+  #     estimated_arrival_time: 'estimatedArrivalTime'
+  #     material_name: 'materialName'
+  #     material_quantity: 'materialQuantity'
+  #     responsible_unit: 'responsibleUnit'
+  #     route: 'route'
+  #     start_point_name: 'startPointName'
+  #     start_point_position: 'startPointPosition'
+  #     task_name: 'taskName'

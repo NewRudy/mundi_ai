@@ -1,0 +1,242 @@
+# 表映射配置文件
+# 定义 PostgreSQL 表与本体节点的映射关系
+# 只有在此配置文件中定义的表才会同步到 Neo4j 图数据库
+
+version: '1.0'
+description: '电站应急时空知识图谱表映射配置 - 定义PostgreSQL表与本体节点的映射关系'
+
+mappings:
+  # ==================== 基础设施类 (Infrastructure - 001_003_003) ====================
+
+  # 1. 电站表映射
+  - tableName: 'power_station'
+    schema: 'hazard_affected_body'
+    entityType: 'PowerStation'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '电站 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 1
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      name: 'name'
+      management_company: 'managementCompany'
+      dam_type: 'damType'
+      capacity: 'capacity'
+      main_application: 'mainApplication'
+      total_storage: 'totalStorage'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 2. 水电站表映射
+  - tableName: 'hydro_station'
+    schema: 'hazard_affected_body'
+    entityType: 'HydroStation'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '水文站 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 2
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      gb: 'gb'
+      name: 'name'
+      ysdm: 'ysdm'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 3. 机场表映射
+  - tableName: 'airport'
+    schema: 'hazard_affected_body'
+    entityType: 'Airport'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '机场 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 3
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 4. 客运站表映射
+  - tableName: 'passenger_station'
+    schema: 'hazard_affected_body'
+    entityType: 'PassengerStation'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '客运站 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 4
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 5. 火车站表映射
+  - tableName: 'railway_station'
+    schema: 'hazard_affected_body'
+    entityType: 'RailwayStation'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '火车站 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 5
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 6. 公路表映射
+  - tableName: 'highway'
+    schema: 'hazard_affected_body'
+    entityType: 'Highway'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '公路 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 6
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      gb: 'gb'
+      rn: 'rn'
+      name: 'name'
+      rteg: 'rteg'
+      ysdm: 'ysdm'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 7. 道路表映射
+  - tableName: 'road'
+    schema: 'hazard_affected_body'
+    entityType: 'Road'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '道路 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 7
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      ref: 'ref'
+      oneway: 'oneway'
+      maxspeed: 'maxSpeed'
+      layer: 'layer'
+      bridge: 'bridge'
+      tunnel: 'tunnel'
+      shape_leng: 'shapeLength'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 8. 渡口表映射
+  - tableName: 'ferry'
+    schema: 'hazard_affected_body'
+    entityType: 'Ferry'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '渡口 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 8
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 9. 加油站表映射
+  - tableName: 'gas_station'
+    schema: 'hazard_affected_body'
+    entityType: 'GasStation'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '加油站 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 9
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 10. 直升机停机坪表映射
+  - tableName: 'helicopter_pad'
+    schema: 'hazard_affected_body'
+    entityType: 'HelicopterPad'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '直升机停机坪 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 10
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      shape_leng: 'shapeLength'
+      shape_area: 'shapeArea'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
+
+  # 11. 污水处理厂表映射
+  - tableName: 'sewage_treatment_plant'
+    schema: 'hazard_affected_body'
+    entityType: 'SewageTreatmentPlant'
+    ontologyNodeId: '001_003_003'
+    ontologyEnglishName: 'Infrastructure'
+    description: '污水处理厂 - 映射到基础设施本体节点'
+    enabled: true
+    priority: 11
+    fieldMappings:
+      id: 'id'
+      neo4j_node_id: 'neo4jNodeId'
+      osm_id: 'osmId'
+      code: 'code'
+      fclass: 'fclass'
+      name: 'name'
+      shape_leng: 'shapeLength'
+      shape_area: 'shapeArea'
+      start_time: 'startTime'
+      end_time: 'endTime'
+      status: 'status'
