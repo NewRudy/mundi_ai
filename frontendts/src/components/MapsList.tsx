@@ -1,13 +1,17 @@
 // Copyright Bunting Labs, Inc. 2025
 
-import { Clock, Plus, Trash2 } from 'lucide-react';
+import { Clock, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useProjects } from '../contexts/ProjectsContext';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Tooltip, TooltipProvider, TooltipTrigger } from './ui/tooltip';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from './ui/context-menu';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Input } from './ui/input';
 
 interface MapsListProps {
   hideNewButton?: boolean;
@@ -26,7 +30,12 @@ export default function MapsList({ hideNewButton = false }: MapsListProps) {
     setShowDeleted,
     createProject,
     deleteProject,
+    refetchProjects,
   } = useProjects();
+
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renamingId, setRenamingId] = useState<string | null>(null);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -95,15 +104,38 @@ export default function MapsList({ hideNewButton = false }: MapsListProps) {
     }
   };
 
-  const handleDeleteMap = async (projectId: string, event: React.MouseEvent) => {
-    event.preventDefault(); // Prevent navigation
-    event.stopPropagation(); // Stop event bubbling
-
+  const handleDeleteMap = async (projectId: string, event?: React.MouseEvent) => {
+    event?.preventDefault();
+    event?.stopPropagation();
     try {
       await deleteProject(projectId);
     } catch (err) {
-      // Error handling is managed by the context
       console.error('Failed to delete map:', err);
+    }
+  };
+
+  const openRename = (projectId: string, currentTitle: string, e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    setRenamingId(projectId);
+    setRenameValue(currentTitle || '');
+    setRenameOpen(true);
+  };
+
+  const submitRename = async () => {
+    if (!renamingId) return;
+    try {
+      const resp = await fetch(`/api/projects/${renamingId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: renameValue }),
+      });
+      if (!resp.ok) throw new Error('Rename failed');
+      setRenameOpen(false);
+      setRenamingId(null);
+      refetchProjects();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -204,10 +236,11 @@ export default function MapsList({ hideNewButton = false }: MapsListProps) {
           <>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6">
               {projects.map((project) => (
-                <Link to={`/project/${project.id}`} key={project.id}>
-                  <div
-                    key={project.id}
-                    className="relative h-[280px] border border-zinc-300 rounded-md overflow-hidden group cursor-pointer"
+                <ContextMenu key={project.id}>
+                  <ContextMenuTrigger asChild>
+                    <Link to={`/project/${project.id}`}>
+                      <div
+                        className="relative h-[280px] border border-zinc-300 rounded-md overflow-hidden group cursor-pointer"
                     style={
                       project.soft_deleted_at === null
                         ? {
@@ -277,13 +310,26 @@ export default function MapsList({ hideNewButton = false }: MapsListProps) {
                           })()}
                         </div>
 
-                        <Button size="sm" asChild className="bg-[#C1FA3D] hover:bg-[#B8E92B] text-black">
+                        <Button size="sm" className="bg-[#C1FA3D] hover:bg-[#B8E92B] text-black">
                           Open
                         </Button>
                       </div>
-                    </div>
-                  </div>
-                </Link>
+                      </div>
+                      </div>
+                    </Link>
+                  </ContextMenuTrigger>
+                  <ContextMenuContent>
+                    <ContextMenuItem onClick={(e) => openRename(project.id, project.title || 'Untitled Map', e)}>
+                      <Pencil className="w-4 h-4" /> Rename
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    {project.soft_deleted_at === null && (
+                      <ContextMenuItem variant="destructive" onClick={(e) => handleDeleteMap(project.id, e)}>
+                        <Trash2 className="w-4 h-4" /> Delete
+                      </ContextMenuItem>
+                    )}
+                  </ContextMenuContent>
+                </ContextMenu>
               ))}
             </div>
           </>
@@ -304,6 +350,20 @@ export default function MapsList({ hideNewButton = false }: MapsListProps) {
           height: 100%;
         }
       `}</style>
+      <Dialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Map</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} placeholder="Enter map name" />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameOpen(false)}>Cancel</Button>
+            <Button onClick={submitRename} className="bg-[#C1FA3D] text-black hover:bg-[#B8E92B]">Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

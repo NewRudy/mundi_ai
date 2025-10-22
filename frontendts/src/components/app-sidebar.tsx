@@ -1,8 +1,7 @@
-import { AccountMenu, ScheduleCallButton } from '@mundi/ee';
-import { BookOpen, Cloud, House, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { AccountMenu } from '@mundi/ee';
+import { House, PanelRightClose, PanelRightOpen } from 'lucide-react';
 import { Suspense } from 'react';
 import { Link } from 'react-router-dom';
-import BuntingBirdSvg from '@/assets/bunting_bird.svg';
 import ADarkSvg from '@/assets/A-dark.svg';
 import ALightSvg from '@/assets/A-light.svg';
 import AnwayDarkSvg from '@/assets/Anway-dark.svg';
@@ -111,46 +110,9 @@ export function AppSidebar() {
         <Suspense fallback={null}>
           <AccountMenu />
         </Suspense>
-        <SidebarGroup>
-          <SidebarGroupLabel>About</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Documentation">
-                  <a href="https://docs.mundi.ai" target="_blank">
-                    <BookOpen className="w-4 h-4 mr-2" />
-                    <span className="text-sm">Documentation</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Anway Cloud">
-                  <a href="https://app.mundi.ai" target="_blank">
-                    <Cloud className="w-4 h-4 mr-2" />
-                    <span className="text-sm">Anway Cloud</span>
-                  </a>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <Suspense fallback={null}>
-                  <ScheduleCallButton />
-                </Suspense>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Branding/links removed per customization */}
       </SidebarContent>
-      <SidebarFooter className="p-1 border-t border-border border-gray-700">
-        <div className="text-center">
-          <a href="https://buntinglabs.com" target="_blank" className="text-muted-foreground text-xs hover:underline">
-            {state === 'collapsed' ? (
-              <img src={BuntingBirdSvg} alt="Bunting Labs" className="w-6 h-6 mx-auto my-2" />
-            ) : (
-              '© Bunting Labs, Inc. 2025'
-            )}
-          </a>
-        </div>
-      </SidebarFooter>
+      {/* Footer branding removed per customization */}
     </Sidebar>
   );
 }

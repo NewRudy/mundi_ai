@@ -114,7 +114,13 @@ RUN python3 -m venv /app/.venv \
 FROM ${NODE_IMAGE} AS frontend-builder
 WORKDIR /app/frontendts
 COPY frontendts/package*.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps
+# Configure npm mirror and timeouts for reliable install
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm config set fetch-retries 5 \
+    && npm config set fetch-timeout 600000 \
+    && npm config set fetch-retry-maxtimeout 120000 \
+    && npm config set strict-ssl false
+RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps --registry=https://registry.npmmirror.com --no-audit --no-fund
 ARG VITE_WEBSITE_DOMAIN
 COPY frontendts/ ./
 ENV VITE_WEBSITE_DOMAIN=$VITE_WEBSITE_DOMAIN \

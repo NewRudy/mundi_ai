@@ -101,7 +101,8 @@ uv run basedpyright
 - **Main Application**: FastAPI backend serving both API and SPA frontend
 - **Frontend**: React/TypeScript SPA built with Vite, using MapLibre for mapping
 - **QGIS Processing**: Separate service for geoprocessing operations
-- **PostgreSQL**: Primary database with PostGIS extension
+- **PostgreSQL**: Primary database with PostGIS extension for spatial operations
+- **Neo4j**: Graph database for spatiotemporal knowledge graph (disaster/hazard relationships)
 - **Redis**: Caching and session management
 - **MinIO**: S3-compatible object storage for file uploads
 
@@ -116,8 +117,13 @@ uv run basedpyright
   - `message_routes.py`: AI agent orchestration
   - `conversation_routes.py`: Chat/conversation management
   - `websocket.py`: Real-time communication
+  - `kg_routes.py`: Knowledge graph queries and entity management
 - **`dependencies/`**: Shared services and dependency injection
+  - `knowledge_graph.py`: Neo4j client wrapper
+  - `pydantic_tools.py`: LLM tool definitions and parameter models
+  - `db_pool.py`: Connection pooling for external databases
 - **`geoprocessing/`**: QGIS integration and spatial processing
+- **`tools/`**: Data ingestion utilities (CAP, USGS, NOAA, GDACS feeds)
 
 #### Frontend (`frontendts/src/`)
 - **`main.tsx`**: React application entry point
@@ -133,14 +139,30 @@ uv run basedpyright
 2. **Rendering Pipeline**:
    - Raster: COG/XYZ tiles via rio-tiler
    - Vector: MVT/PMTiles generation
-3. **AI Workflow**: User message → Tool selection → PostGIS/DuckDB/QGIS execution → New layer + styling
+3. **AI Workflow**: User message → Tool selection → PostGIS/DuckDB/QGIS/KG execution → New layer + styling
+4. **Knowledge Graph Integration**:
+   - External data feeds (CAP/GDACS/USGS/NOAA) → Normalization → Neo4j entities/relationships
+   - Events linked to Locations via spatial proximity
+   - AI queries KG for disaster context, resources, and impact zones
+5. **Disaster Response Tools**:
+   - `find_resources`: Query KG for available resources in affected areas
+   - `plan_evacuation`: Network analysis via QGIS + road/population data
+   - `simulate_impact`: QGIS flood/landslide models → New hazard layers
 
 ### Database Schema Highlights
+
+#### PostgreSQL (Primary Database)
 - **`MundiProject`**: Container for maps with access control
 - **`MundiMap`**: Individual maps with layer collections and versioning
 - **`MapLayer`**: Spatial data references (vector/raster/PostGIS/point cloud)
 - **`ProjectPostgresConnection`**: External database connections
 - **`MapLayerStyle`**: MapLibre GL styling for layers
+
+#### Neo4j Knowledge Graph (Disaster/Hazard Domain)
+- **Entities**: HazardType, Event, Location, Infrastructure, Resource, Population, Sensor, Report
+- **Relationships**: occurs_at, impacts, located_in, requires, routes_to, nearby, observed_by
+- **Spatial Binding**: All entities have bbox/centroid (WGS84), events linked to nearest Location
+- **Temporal Window**: Event nodes include time ranges for historical and active hazards
 
 ### Development Patterns
 
@@ -152,8 +174,10 @@ uv run basedpyright
 #### Security Constraints
 - PostGIS queries validated with `EXPLAIN (FORMAT JSON)` to prevent writes
 - All external queries limited to < 1000 results
-- LLM tool calls use restricted Pydantic parameter templates
+- LLM tool calls use restricted Pydantic parameter templates (no free-text SQL/Cypher)
 - MapLibre styles validated through `src/symbology/verify.py`
+- Neo4j/KG queries must be parameterized (no direct Cypher execution from user input)
+- QGIS processing tasks enforce timeout limits and resource constraints
 
 #### Geographic Data Handling
 - Supports multiple projections via pyproj
@@ -171,9 +195,11 @@ uv run basedpyright
 ### Environment Variables
 The docker-compose.yml provides defaults, but key variables include:
 - `POSTGRES_*`: Database connection settings
+- `NEO4J_*`: Knowledge graph database (host, port, user, password)
 - `S3_*`: Object storage configuration
-- `OPENAI_API_KEY`: LLM integration
+- `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`: LLM integration (supports custom endpoints)
 - `QGIS_PROCESSING_URL`: Geoprocessing service endpoint
+- `REDIS_HOST`, `REDIS_PORT`: Cache and session configuration
 - `MUNDI_AUTH_MODE`: Set to "edit" or "view_only"
 
 ### Testing Strategy
@@ -188,8 +214,18 @@ The docker-compose.yml provides defaults, but key variables include:
 - Use async/await for all I/O operations
 - Explicit type annotations for public APIs
 - Pydantic models for request/response validation
-- OpenTelemetry tracing for observability
+- OpenTelemetry tracing for observability (KG queries, QGIS execution, S3 uploads, PostGIS queries)
 - HTTPException with structured error details
+- Never use free-text SQL/Cypher from user input; always parameterize queries
+
+### LLM Agent Tools
+LLM tools are registered in `src/dependencies/pydantic_tools.py` and automatically loaded by `message_routes.py`:
+- **`kg_query`**: Template-based knowledge graph queries with pagination
+- **`find_resources`**: Query available resources/infrastructure in disaster zones
+- **`plan_evacuation`**: QGIS network analysis for evacuation routing
+- **`simulate_impact`**: Trigger QGIS algorithms (flood, landslide, etc.) and generate hazard layers
+- **`set_layer_style`**: Apply validated MapLibre styles to layers
+- All tools output new layers with automatic styling and return human-readable summaries
 
 ### Frontend Code Style  
 - Functional components with hooks
@@ -204,6 +240,19 @@ The docker-compose.yml provides defaults, but key variables include:
 - Database models: `src/database/models.py`
 - Frontend components: `frontendts/src/components/`
 - Tests: Colocated with source files using `test_*.py` naming
+
+### Data Ingestion Workflow (External Feeds)
+For integrating disaster/hazard data from external sources:
+1. **Ingest Utilities** (in `src/tools/`):
+   - `ingest_cap.py`: Common Alerting Protocol feeds
+   - `ingest_usgs.py`: USGS earthquake/landslide data
+   - `ingest_noaa.py`: NOAA weather/storm data
+   - `ingest_gdacs.py`: Global Disaster Alert and Coordination System
+2. **Normalization**: Standardize fields (id, time window, coordinates, classification, source)
+3. **Deduplication**: Use `(source_id, time, geohash)` fingerprints to avoid duplicates
+4. **KG Storage**: Write Events, Locations, Resources to Neo4j
+5. **Layer Generation**: Create GeoJSON layers in S3 or PostGIS sources
+6. **Real-time Updates**: Push incremental updates via Redis for frontend notifications
 
 ## Key External Dependencies
 
@@ -225,3 +274,4 @@ The docker-compose.yml provides defaults, but key variables include:
 - Alembic for database migrations
 - OpenAI client for LLM integration
 - Boto3/aioboto3 for S3 operations
+- Neo4j Python driver for knowledge graph operations
