@@ -16,6 +16,8 @@ import { ProjectsProvider } from './contexts/ProjectsContext';
 import NotFound from './pages/NotFound';
 import PostGISDocumentation from './pages/PostGISDocumentation';
 import './App.css';
+import KgNew from './pages/KgNew';
+import KgOverview from './pages/KgOverview';
 import { Routes as EERoutes, OptionalAuth, Provider, RequireAuth } from '@mundi/ee';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
@@ -77,6 +79,23 @@ function AppContent() {
                     <ApiKeys />
                   </RequireAuth>
                 </Suspense>
+              }
+            />
+
+            <Route
+              path="/kg/new"
+              element={
+                <RequireAuth>
+                  <KgNew />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/kg/overview"
+              element={
+                <RequireAuth>
+                  <KgOverview />
+                </RequireAuth>
               }
             />
 

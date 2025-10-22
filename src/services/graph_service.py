@@ -366,6 +366,154 @@ class GraphService:
                 }
             except _Neo4jError as e:
                 raise Exception(f"Failed to get graph stats: {e}")
+    
+    async def search_nodes(self, name: Optional[str] = None, labels: Optional[List[str]] = None, 
+                          limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+        """Search nodes by name and/or labels with pagination"""
+        async with get_neo4j_session() as session:
+            # Build query dynamically
+            label_filter = ""
+            if labels:
+                label_filter = ":" + ":".join(labels)
+            
+            where_clause = ""
+            params = {"limit": min(limit, 1000), "offset": offset}
+            
+            if name:
+                where_clause = "WHERE n.name CONTAINS $name OR n.english_name CONTAINS $name"
+                params["name"] = name
+            
+            cypher = f"""
+            MATCH (n{label_filter})
+            {where_clause}
+            RETURN n, labels(n) as labels
+            ORDER BY n.name
+            SKIP $offset LIMIT $limit
+            """
+            
+            try:
+                result = await session.run(cypher, **params)
+                nodes = []
+                async for record in result:
+                    node = dict(record['n'])
+                    node['labels'] = record['labels']
+                    node = self._convert_properties_from_neo4j(node)
+                    nodes.append(node)
+                
+                # Get total count for pagination
+                count_cypher = f"""
+                MATCH (n{label_filter})
+                {where_clause}
+                RETURN count(n) as total
+                """
+                count_params = {k: v for k, v in params.items() if k != "limit" and k != "offset"}
+                count_result = await session.run(count_cypher, **count_params)
+                count_record = await count_result.single()
+                total = count_record['total'] if count_record else 0
+                
+                return {
+                    "nodes": nodes,
+                    "page": {
+                        "limit": limit,
+                        "offset": offset,
+                        "total": total,
+                        "has_more": (offset + limit) < total
+                    }
+                }
+            except _Neo4jError as e:
+                raise Exception(f"Failed to search nodes: {e}")
+    
+    async def extract_subgraph(self, root_id: str, depth: int = 2, 
+                              labels: Optional[List[str]] = None,
+                              limit: int = 200, offset: int = 0) -> Dict[str, Any]:
+        """Extract a subgraph starting from a root node
+        
+        Args:
+            root_id: ID of the root node to start expansion
+            depth: Maximum depth for graph traversal (1-3, default 2)
+            labels: Optional filter for node labels
+            limit: Max number of nodes to return (max 1000)
+            offset: Pagination offset
+        
+        Returns:
+            Dict with nodes, relationships, and pagination info
+        """
+        async with get_neo4j_session() as session:
+            # Enforce limits per design doc
+            depth = max(1, min(depth, 3))
+            limit = max(1, min(limit, 1000))
+            
+            try:
+                # Phase 1: Get nodes within depth
+                label_filter = ""
+                if labels:
+                    label_condition = " OR ".join([f"'{lbl}' IN labels(n)" for lbl in labels])
+                    label_filter = f"AND ({label_condition})"
+                
+                nodes_cypher = f"""
+                MATCH (r {{id: $root_id}})
+                CALL {{
+                    WITH r
+                    MATCH path = (r)-[*1..{depth}]-(n)
+                    WHERE 1=1 {label_filter}
+                    RETURN DISTINCT n
+                }}
+                WITH collect(n) + [r] AS all_nodes
+                UNWIND all_nodes AS node
+                RETURN DISTINCT node, labels(node) as labels
+                SKIP $offset LIMIT $limit
+                """
+                
+                params = {"root_id": root_id, "offset": offset, "limit": limit}
+                result = await session.run(nodes_cypher, **params)
+                
+                nodes = []
+                node_ids = []
+                async for record in result:
+                    node = dict(record['node'])
+                    node['labels'] = record['labels']
+                    node = self._convert_properties_from_neo4j(node)
+                    nodes.append(node)
+                    node_ids.append(node['id'])
+                
+                # Phase 2: Get relationships among returned nodes
+                relationships = []
+                if node_ids:
+                    rel_limit = min(limit * 4, 4000)
+                    rels_cypher = """
+                    MATCH (a)-[r]-(b)
+                    WHERE a.id IN $node_ids AND b.id IN $node_ids
+                    RETURN DISTINCT r, type(r) as rel_type, 
+                           startNode(r).id as start_id, endNode(r).id as end_id
+                    LIMIT $rel_limit
+                    """
+                    
+                    rel_result = await session.run(rels_cypher, node_ids=node_ids, rel_limit=rel_limit)
+                    async for record in rel_result:
+                        rel = dict(record['r'])
+                        rel = self._convert_properties_from_neo4j(rel)
+                        rel['type'] = record['rel_type']
+                        rel['start_node_id'] = record['start_id']
+                        rel['end_node_id'] = record['end_id']
+                        relationships.append(rel)
+                
+                return {
+                    "nodes": nodes,
+                    "relationships": relationships,
+                    "page": {
+                        "limit": limit,
+                        "offset": offset,
+                        "has_more": len(nodes) == limit
+                    },
+                    "meta": {
+                        "root_id": root_id,
+                        "depth": depth,
+                        "node_count": len(nodes),
+                        "relationship_count": len(relationships)
+                    }
+                }
+            except _Neo4jError as e:
+                raise Exception(f"Failed to extract subgraph: {e}")
 
 
 # Global service instance

@@ -264,3 +264,137 @@ async def health_check():
             "status": "unhealthy",
             "error": str(e)
         }
+
+
+# Subgraph API for visualization
+class SubgraphNode(BaseModel):
+    id: str
+    labels: List[str]
+    properties: Dict[str, Any]
+
+
+class SubgraphRelationship(BaseModel):
+    id: str
+    type: str
+    start: str
+    end: str
+    properties: Dict[str, Any]
+
+
+class SubgraphPage(BaseModel):
+    limit: int
+    offset: int
+    has_more: bool
+
+
+class SubgraphResponse(BaseModel):
+    nodes: List[SubgraphNode]
+    relationships: List[SubgraphRelationship]
+    page: SubgraphPage
+
+
+_ALLOWED_NODE_PROPS = {
+    "id",
+    "name",
+    "english_name",
+    "node_kind",
+    "table_name",
+    "schema",
+    "entity_type",
+    "pg_id",
+    "bbox",
+    "centroid",
+}
+
+
+@router.get("/subgraph", response_model=SubgraphResponse)
+async def get_subgraph(
+    root_id: str = Query(..., description="Root node id to expand from"),
+    depth: int = Query(2, ge=1, le=3),
+    labels: Optional[List[str]] = Query(None, description="Restrict to these labels"),
+    limit: int = Query(200, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+):
+    """Return a bounded subgraph for visualization.
+    Returns nodes reachable within `depth` and relationships among returned nodes.
+    """
+    from src.dependencies.neo4j_connection import get_neo4j_session
+
+    lbls = labels or []
+
+    # Phase 1: fetch nodes
+    node_query = (
+        "MATCH (r {id: $root}) "
+        "WITH r "
+        "MATCH p=(r)-[*1..$depth]-(n) "
+        "WHERE $labels = [] OR any(l IN labels(n) WHERE l IN $labels) "
+        "WITH collect(distinct n) + r AS ns "
+        "UNWIND ns AS n "
+        "RETURN n, labels(n) as labels SKIP $offset LIMIT $limit"
+    )
+
+    nodes: List[Dict[str, Any]] = []
+    async with get_neo4j_session() as session:
+        try:
+            result = await session.run(
+                node_query,
+                root=root_id,
+                depth=depth,
+                labels=lbls,
+                offset=offset,
+                limit=limit,
+            )
+            async for record in result:
+                n = dict(record["n"])  # raw props from Neo4j
+                # Whitelist props
+                props = {k: v for k, v in n.items() if k in _ALLOWED_NODE_PROPS}
+                nid = n.get("id")
+                if not nid:
+                    continue
+                nodes.append({
+                    "id": nid,
+                    "labels": record["labels"],
+                    "properties": props,
+                })
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"subgraph node query failed: {e}")
+
+    node_ids = [n["id"] for n in nodes]
+    if not node_ids:
+        return SubgraphResponse(nodes=[], relationships=[], page=SubgraphPage(limit=limit, offset=offset, has_more=False))
+
+    # Phase 2: fetch relationships among the node set
+    rel_limit = min(limit * 4, 4000)
+    rel_query = (
+        "WITH $ids AS ids "
+        "MATCH (a)-[r]-(b) WHERE a.id IN ids AND b.id IN ids "
+        "RETURN r, startNode(r).id AS start, endNode(r).id AS end, type(r) AS t "
+        "LIMIT $rel_limit"
+    )
+
+    relationships: List[Dict[str, Any]] = []
+    async with get_neo4j_session() as session:
+        try:
+            result = await session.run(rel_query, ids=node_ids, rel_limit=rel_limit)
+            async for record in result:
+                r = dict(record["r"])  # properties
+                props = {k: v for k, v in r.items() if isinstance(k, str)}
+                rid = r.get("id")
+                if not rid:
+                    # Generate a synthetic id from start-end-type if missing
+                    rid = f"{record['start']}->{record['t']}->{record['end']}"
+                relationships.append({
+                    "id": rid,
+                    "type": record["t"],
+                    "start": record["start"],
+                    "end": record["end"],
+                    "properties": props,
+                })
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"subgraph relationship query failed: {e}")
+
+    has_more = len(nodes) == limit
+    # Build response models
+    node_models = [SubgraphNode(**n) for n in nodes]
+    rel_models = [SubgraphRelationship(**r) for r in relationships]
+    return SubgraphResponse(nodes=node_models, relationships=rel_models, page=SubgraphPage(limit=limit, offset=offset, has_more=has_more))

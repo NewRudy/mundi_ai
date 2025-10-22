@@ -30,7 +30,7 @@ from src.routes.postgres_routes import basemap_router
 from src.routes.layer_router import layer_router
 from src.routes.attribute_table import attribute_table_router
 from src.routes.graph_routes import router as graph_router
-from src.routes.kg_minimal_routes import router as kg_minimal_router
+from src.routes.kg_minimal_routes import router as kg_router
 # from fastapi_mcp import FastApiMCP
 
 
@@ -103,9 +103,9 @@ app.include_router(
     tags=["Knowledge Graph"],
 )
 app.include_router(
-    kg_minimal_router,
+    kg_router,
     prefix="/api/kg",
-    tags=["KG Minimal"],
+    tags=["Knowledge Graph"],
 )
 
 

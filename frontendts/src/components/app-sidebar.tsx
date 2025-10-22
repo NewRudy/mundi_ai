@@ -1,5 +1,5 @@
 import { AccountMenu } from '@mundi/ee';
-import { House, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import { House, PanelRightClose, PanelRightOpen, GitBranch } from 'lucide-react';
 import { Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import ADarkSvg from '@/assets/A-dark.svg';
@@ -103,6 +103,30 @@ export function AppSidebar() {
                   ))}
                 </>
               )}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Knowledge Graph</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="KG Overview">
+                  <Link to={`/kg/overview`}>
+                    <GitBranch className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Overview</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="KG Builder">
+                  <Link to={`/kg/new`}>
+                    <GitBranch className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Builder</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

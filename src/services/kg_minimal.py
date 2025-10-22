@@ -173,6 +173,36 @@ async def apply_config_yaml(config_yaml: str) -> Dict[str, Any]:
     return created
 
 
+# -----------------------------
+# Ontology JSON adapter
+# -----------------------------
+
+def _walk_ontology_json(node: Dict[str, Any], out: List[OntologyNodeConfig], parent_id: Optional[str] = None) -> None:
+    nid = str(node.get("id"))
+    name = node.get("name")
+    english_name = node.get("englishName")
+    if not nid or not name:
+        return
+    out.append(OntologyNodeConfig(id=nid, name=name, english_name=english_name, parent_id=parent_id))
+    for child in (node.get("subclass") or []):
+        if isinstance(child, dict):
+            _walk_ontology_json(child, out, parent_id=nid)
+
+
+def ontology_json_to_kgconfig(data: Dict[str, Any]) -> KGConfig:
+    nodes: List[OntologyNodeConfig] = []
+    _walk_ontology_json(data, nodes, parent_id=None)
+    return KGConfig(ontology_nodes=nodes, tables=[])
+
+
+async def apply_ontology_json(ontology_json: Dict[str, Any]) -> Dict[str, Any]:
+    cfg = ontology_json_to_kgconfig(ontology_json)
+    # Dump to YAML and reuse existing apply
+    cfg_yaml = yaml.safe_dump(cfg.model_dump(mode="python"), allow_unicode=True, sort_keys=False)
+    created = await apply_config_yaml(cfg_yaml)
+    return {"ontology_created": created.get("ontology", 0), "relations_created": created.get("relations", 0)}
+
+
 async def upsert_instance(table_name: str, pg_id: str, name: Optional[str] = None, properties: Optional[Dict[str, Any]] = None) -> str:
     """Create or update an Instance node and link to its Table node."""
     iid = instance_node_id(table_name, pg_id)
