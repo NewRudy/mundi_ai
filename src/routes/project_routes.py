@@ -32,6 +32,8 @@ from src.dependencies.session import (
 )
 from src.dependencies.auth import require_auth
 from src.dependencies.base_map import BaseMapProvider, get_base_map_provider
+from src.services.dbdoc_enrichment import preview_enrichment, start_enrichment_job
+from src.dependencies.database_documenter import generate_id as gen_summary_id
 from typing import List, Optional, Sequence, cast
 import logging
 from datetime import datetime
@@ -967,3 +969,136 @@ async def get_project_embed(
     }
 
     return HTMLResponse(content=html_content, headers=headers)
+
+
+class EnrichOptions(BaseModel):
+    useKG: bool | None = True
+    useDomainDocs: bool | None = False
+    useSpatial: bool | None = False
+    language: str | None = "zh-CN"
+
+
+class EnrichStartResponse(BaseModel):
+    job_id: str
+    message: str
+
+
+class EnrichStatusResponse(BaseModel):
+    status: str
+    summary_id: str | None = None
+    error: str | None = None
+
+
+@project_router.get(
+    "/{project_id}/postgis-connections/{connection_id}/docs/enrich/preview",
+    operation_id="preview_enriched_database_documentation",
+)
+async def preview_enriched_database_documentation(
+    connection_id: str,
+    options: EnrichOptions = Depends(),
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    # Validate connection exists in project
+    async with get_async_db_connection() as conn:
+        exists = await conn.fetchval(
+            """
+            SELECT 1 FROM project_postgres_connections
+            WHERE id = $1 AND project_id = $2 AND soft_deleted_at IS NULL
+            """,
+            connection_id,
+            project.id,
+        )
+        if not exists:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database connection not found")
+
+    result = await preview_enrichment(
+        connection_id,
+        {
+            "useKG": bool(options.useKG),
+            "useDomainDocs": bool(options.useDomainDocs),
+            "useSpatial": bool(options.useSpatial),
+            "language": options.language or "zh-CN",
+        },
+    )
+    return result
+
+
+@project_router.post(
+    "/{project_id}/postgis-connections/{connection_id}/docs/enrich/start",
+    response_model=EnrichStartResponse,
+    operation_id="start_enriched_database_documentation",
+)
+async def start_enriched_database_documentation(
+    connection_id: str,
+    options: EnrichOptions,
+    background_tasks: BackgroundTasks,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    # Validate connection exists in project
+    async with get_async_db_connection() as conn:
+        exists = await conn.fetchval(
+            """
+            SELECT 1 FROM project_postgres_connections
+            WHERE id = $1 AND project_id = $2 AND soft_deleted_at IS NULL
+            """,
+            connection_id,
+            project.id,
+        )
+        if not exists:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database connection not found")
+
+    job_id = gen_summary_id(prefix="J")
+    # Fire-and-forget background job
+    background_tasks.add_task(
+        start_enrichment_job,
+        job_id,
+        connection_id,
+        {
+            "useKG": bool(options.useKG),
+            "useDomainDocs": bool(options.useDomainDocs),
+            "useSpatial": bool(options.useSpatial),
+            "language": options.language or "zh-CN",
+        },
+    )
+    return EnrichStartResponse(job_id=job_id, message="Enrichment started")
+
+
+@project_router.get(
+    "/{project_id}/postgis-connections/{connection_id}/docs/enrich/status",
+    response_model=EnrichStatusResponse,
+    operation_id="get_enrichment_status",
+)
+async def get_enrichment_status(
+    connection_id: str,
+    job_id: str,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    # Validate the connection belongs to the project
+    async with get_async_db_connection() as conn:
+        exists = await conn.fetchval(
+            """
+            SELECT 1 FROM project_postgres_connections
+            WHERE id = $1 AND project_id = $2 AND soft_deleted_at IS NULL
+            """,
+            connection_id,
+            project.id,
+        )
+        if not exists:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database connection not found")
+
+    # Read status from Redis
+    from redis import Redis
+    r = Redis(host=os.environ["REDIS_HOST"], port=int(os.environ["REDIS_PORT"]), decode_responses=True)
+
+    status_val = r.get(f"dbdoc_enrich:{job_id}:status") or "unknown"
+    if status_val == "done":
+        summary_id = r.get(f"dbdoc_enrich:{job_id}:summary_id")
+        return EnrichStatusResponse(status=status_val, summary_id=summary_id)
+    elif status_val == "error":
+        error = r.get(f"dbdoc_enrich:{job_id}:error")
+        return EnrichStatusResponse(status=status_val, error=error)
+    else:
+        return EnrichStatusResponse(status=status_val)

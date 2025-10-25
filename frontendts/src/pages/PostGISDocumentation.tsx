@@ -33,6 +33,8 @@ const PostGISDocumentation = () => {
   const [error, setError] = useState<string | null>(null);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPreviewingEnrich, setIsPreviewingEnrich] = useState(false);
+  const [isApplyingEnrich, setIsApplyingEnrich] = useState(false);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
 
   const fetchDocumentation = useCallback(async () => {
@@ -150,6 +152,64 @@ const PostGISDocumentation = () => {
     }
   };
 
+  const handlePreviewEnrich = async () => {
+    if (!connectionId || !projectId) return;
+    setIsPreviewingEnrich(true);
+    setError(null);
+    try {
+      const params = new URLSearchParams({ useKG: 'true', language: 'zh-CN' });
+      const resp = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/enrich/preview?${params}`);
+      if (!resp.ok) throw new Error(`Failed to preview enrichment: ${resp.statusText}`);
+      const data = await resp.json();
+      if (data.preview_md) setDocumentation(data.preview_md);
+      if (data.friendly_name) setConnectionName(data.friendly_name);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to preview enrichment');
+    } finally {
+      setIsPreviewingEnrich(false);
+    }
+  };
+
+  const handleApplyEnrich = async () => {
+    if (!connectionId || !projectId) return;
+    setIsApplyingEnrich(true);
+    setError(null);
+    try {
+      const resp = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/enrich/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ useKG: true, language: 'zh-CN' }),
+      });
+      if (!resp.ok) throw new Error(`Failed to start enrichment: ${resp.statusText}`);
+      const data = await resp.json();
+      const jobId = data.job_id as string;
+
+      // Poll status up to ~20s
+      const start = Date.now();
+      const timeoutMs = 20000;
+      while (Date.now() - start < timeoutMs) {
+        const s = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/enrich/status?job_id=${encodeURIComponent(jobId)}`);
+        if (s.ok) {
+          const st = await s.json();
+          if (st.status === 'done') {
+            await fetchDocumentation();
+            setIsApplyingEnrich(false);
+            return;
+          } else if (st.status === 'error') {
+            throw new Error(st.error || 'Enrichment failed');
+          }
+        }
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+      // Timeout
+      await fetchDocumentation();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to apply enrichment');
+    } finally {
+      setIsApplyingEnrich(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!connectionId || !projectId) return;
 
@@ -200,7 +260,7 @@ If documentation generation fails, this indicates the database connection detail
               variant="outline"
               size="sm"
               onClick={handleRegenerate}
-              disabled={isRegenerating || loading || isDeleting}
+              disabled={isRegenerating || loading || isDeleting || isPreviewingEnrich || isApplyingEnrich}
               className="flex items-center gap-2 hover:cursor-pointer"
             >
               {isRegenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
@@ -209,8 +269,28 @@ If documentation generation fails, this indicates the database connection detail
             <Button
               variant="outline"
               size="sm"
+              onClick={handlePreviewEnrich}
+              disabled={isPreviewingEnrich || loading || isDeleting || isRegenerating || isApplyingEnrich}
+              className="flex items-center gap-2 hover:cursor-pointer"
+            >
+              {isPreviewingEnrich ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isPreviewingEnrich ? 'Previewing…' : 'Preview Enrich'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleApplyEnrich}
+              disabled={isApplyingEnrich || loading || isDeleting || isRegenerating}
+              className="flex items-center gap-2 hover:cursor-pointer"
+            >
+              {isApplyingEnrich ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}
+              {isApplyingEnrich ? 'Applying…' : 'Apply Enrich'}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleDelete}
-              disabled={isDeleting || loading || isRegenerating}
+              disabled={isDeleting || loading || isRegenerating || isPreviewingEnrich || isApplyingEnrich}
               className="flex items-center gap-2 hover:cursor-pointer text-red-400 hover:text-red-300 border-red-500 hover:border-red-400"
             >
               {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
