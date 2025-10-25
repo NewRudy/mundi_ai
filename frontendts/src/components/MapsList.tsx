@@ -1,6 +1,6 @@
 // Copyright Bunting Labs, Inc. 2025
 
-import { Clock, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Clock, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,7 +10,7 @@ import { Card } from './ui/card';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from './ui/pagination';
 import { Tooltip, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from './ui/context-menu';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
 import { Input } from './ui/input';
 
 interface MapsListProps {

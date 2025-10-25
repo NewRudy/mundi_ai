@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import {
   Sidebar,
   SidebarContent,
-  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
