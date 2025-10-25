@@ -34,6 +34,8 @@ from src.dependencies.auth import require_auth
 from src.dependencies.base_map import BaseMapProvider, get_base_map_provider
 from src.services.dbdoc_enrichment import preview_enrichment, start_enrichment_job
 from src.dependencies.database_documenter import generate_id as gen_summary_id
+from fastapi import File, UploadFile
+from src.utils import get_async_s3_client, get_bucket_name
 from typing import List, Optional, Sequence, cast
 import logging
 from datetime import datetime
@@ -1013,6 +1015,7 @@ async def preview_enriched_database_documentation(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Database connection not found")
 
     result = await preview_enrichment(
+        project.id,
         connection_id,
         {
             "useKG": bool(options.useKG),
@@ -1054,6 +1057,7 @@ async def start_enriched_database_documentation(
     background_tasks.add_task(
         start_enrichment_job,
         job_id,
+        project.id,
         connection_id,
         {
             "useKG": bool(options.useKG),
@@ -1102,3 +1106,373 @@ async def get_enrichment_status(
         return EnrichStatusResponse(status=status_val, error=error)
     else:
         return EnrichStatusResponse(status=status_val)
+
+
+class KnowledgeDocItem(BaseModel):
+    doc_id: str
+    filename: str
+    size: int
+    uploaded_at: str | None = None
+
+
+class KnowledgeDocsResponse(BaseModel):
+    items: list[KnowledgeDocItem]
+
+
+@project_router.get(
+    "/{project_id}/knowledge/docs",
+    response_model=KnowledgeDocsResponse,
+    operation_id="list_knowledge_docs",
+)
+async def list_knowledge_docs(
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    s3 = await get_async_s3_client()
+    bucket = get_bucket_name()
+    prefix = f"knowledge_docs/{project.id}/"
+    items: dict[str, KnowledgeDocItem] = {}
+
+    paginator = s3.get_paginator("list_objects_v2")
+    async for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []) if page else []:
+            key = obj["Key"]
+            parts = key.split("/")
+            if len(parts) < 4:
+                continue
+            _, pid, doc_id, filename = parts[0], parts[1], parts[2], "/".join(parts[3:])
+            existing = items.get(doc_id)
+            if not existing:
+                items[doc_id] = KnowledgeDocItem(
+                    doc_id=doc_id,
+                    filename=filename,
+                    size=int(obj.get("Size", 0)),
+                    uploaded_at=obj.get("LastModified").isoformat() if obj.get("LastModified") else None,
+                )
+            else:
+                existing.size += int(obj.get("Size", 0))
+                if obj.get("LastModified"):
+                    existing.uploaded_at = obj.get("LastModified").isoformat()
+
+    return KnowledgeDocsResponse(items=sorted(items.values(), key=lambda x: x.uploaded_at or ""))
+
+
+@project_router.put(
+    "/{project_id}/knowledge/docs/{doc_id}",
+    response_model=KnowledgeDocItem,
+    operation_id="replace_knowledge_doc",
+)
+async def replace_knowledge_doc(
+    doc_id: str,
+    file: UploadFile = File(...),
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    s3 = await get_async_s3_client()
+    bucket = get_bucket_name()
+    # Delete old files under the doc prefix, then upload new one
+    prefix = f"knowledge_docs/{project.id}/{doc_id}/"
+    resp = await s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+    contents = resp.get("Contents") if resp else None
+    if contents:
+        await s3.delete_objects(Bucket=bucket, Delete={"Objects": [{"Key": o["Key"]} for o in contents]})
+    key = f"{prefix}{file.filename}"
+    content = await file.read()
+    await s3.put_object(Bucket=bucket, Key=key, Body=content, ContentType=file.content_type or "application/octet-stream")
+    head = await s3.head_object(Bucket=bucket, Key=key)
+    size = int(head.get("ContentLength", len(content)))
+    uploaded_at = head.get("LastModified").isoformat() if head.get("LastModified") else None
+    return KnowledgeDocItem(doc_id=doc_id, filename=file.filename, size=size, uploaded_at=uploaded_at)
+
+
+@project_router.post(
+    "/{project_id}/knowledge/docs",
+    response_model=KnowledgeDocItem,
+    operation_id="upload_knowledge_doc",
+)
+async def upload_knowledge_doc(
+    file: UploadFile = File(...),
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    # Generate a doc id and upload to S3 under knowledge_docs/{project_id}/{doc_id}/{filename}
+    s3 = await get_async_s3_client()
+    bucket = get_bucket_name()
+    from src.routes.postgres_routes import generate_id
+    doc_id = generate_id(prefix="D")
+    key = f"knowledge_docs/{project.id}/{doc_id}/{file.filename}"
+
+    content = await file.read()
+    await s3.put_object(Bucket=bucket, Key=key, Body=content, ContentType=file.content_type or "application/octet-stream")
+
+    head = await s3.head_object(Bucket=bucket, Key=key)
+    size = int(head.get("ContentLength", len(content)))
+    uploaded_at = head.get("LastModified").isoformat() if head.get("LastModified") else None
+
+    return KnowledgeDocItem(doc_id=doc_id, filename=file.filename, size=size, uploaded_at=uploaded_at)
+
+
+@project_router.delete(
+    "/{project_id}/knowledge/docs/{doc_id}",
+    operation_id="delete_knowledge_doc",
+)
+async def delete_knowledge_doc(
+    doc_id: str,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    s3 = await get_async_s3_client()
+    bucket = get_bucket_name()
+    prefix = f"knowledge_docs/{project.id}/{doc_id}/"
+    # List and delete all objects under the doc prefix
+    to_delete = []
+    resp = await s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
+    contents = resp.get("Contents") if resp else None
+    for obj in contents or []:
+        to_delete.append({"Key": obj["Key"]})
+    if to_delete:
+        # S3 bulk delete requires a specific structure
+        await s3.delete_objects(Bucket=bucket, Delete={"Objects": to_delete})
+    return {"message": "Deleted"}
+
+
+# ---- Versions API (list, get, rollback) ----
+class DocVersionItem(BaseModel):
+    summary_id: str
+    friendly_name: str
+    generated_at: str | None = None
+    size: int | None = None
+
+
+class DocVersionsResponse(BaseModel):
+    items: list[DocVersionItem]
+
+
+class DocVersionContent(BaseModel):
+    summary_id: str
+    friendly_name: str
+    generated_at: str | None = None
+    content: str
+
+
+@project_router.get(
+    "/{project_id}/postgis-connections/{connection_id}/docs/versions",
+    response_model=DocVersionsResponse,
+    operation_id="list_doc_versions",
+)
+async def list_doc_versions(
+    connection_id: str,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    async with get_async_db_connection() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, friendly_name, summary_md, generated_at
+            FROM project_postgres_summary
+            WHERE connection_id = $1
+            ORDER BY generated_at DESC NULLS LAST
+            """,
+            connection_id,
+        )
+    items = []
+    for r in rows:
+        content = r["summary_md"] or ""
+        items.append(
+            DocVersionItem(
+                summary_id=r["id"],
+                friendly_name=r["friendly_name"] or "",
+                generated_at=r["generated_at"].isoformat() if r.get("generated_at") else None,
+                size=len(content),
+            )
+        )
+    return DocVersionsResponse(items=items)
+
+
+@project_router.get(
+    "/{project_id}/postgis-connections/{connection_id}/docs/versions/{summary_id}",
+    response_model=DocVersionContent,
+    operation_id="get_doc_version",
+)
+async def get_doc_version(
+    connection_id: str,
+    summary_id: str,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    async with get_async_db_connection() as conn:
+        r = await conn.fetchrow(
+            """
+            SELECT id, friendly_name, summary_md, generated_at
+            FROM project_postgres_summary
+            WHERE connection_id = $1 AND id = $2
+            """,
+            connection_id,
+            summary_id,
+        )
+        if not r:
+            raise HTTPException(status_code=404, detail="summary not found")
+    return DocVersionContent(
+        summary_id=r["id"],
+        friendly_name=r["friendly_name"] or "",
+        generated_at=r["generated_at"].isoformat() if r.get("generated_at") else None,
+        content=r["summary_md"] or "",
+    )
+
+
+class RollbackRequest(BaseModel):
+    summary_id: str
+
+
+@project_router.post(
+    "/{project_id}/postgis-connections/{connection_id}/docs/rollback",
+    operation_id="rollback_doc_version",
+)
+async def rollback_doc_version(
+    connection_id: str,
+    req: RollbackRequest,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    async with get_async_db_connection() as conn:
+        r = await conn.fetchrow(
+            "SELECT friendly_name, summary_md FROM project_postgres_summary WHERE connection_id=$1 AND id=$2",
+            connection_id,
+            req.summary_id,
+        )
+        if not r:
+            raise HTTPException(status_code=404, detail="summary not found")
+        new_id = gen_summary_id(prefix="S")
+        await conn.execute(
+            """
+            INSERT INTO project_postgres_summary (id, connection_id, friendly_name, summary_md)
+            VALUES ($1,$2,$3,$4)
+            """,
+            new_id,
+            connection_id,
+            r["friendly_name"],
+            r["summary_md"],
+        )
+    return {"message": "rolled back", "summary_id": new_id}
+
+
+# ---- Simple block-level ops (by heading) ----
+class DeleteByHeadingRequest(BaseModel):
+    heading: str
+
+
+class ReplaceByHeadingRequest(BaseModel):
+    heading: str
+    new_content: str
+
+
+def _delete_section_by_heading(md: str, heading: str) -> str:
+    import re
+    lines = md.splitlines()
+    # Find the line with specified heading (e.g., '## Title') ignoring extra spaces
+    target_idx = -1
+    for i, line in enumerate(lines):
+        if re.match(r"^\s*#{1,6}\s+" + re.escape(heading.strip()) + r"\s*$", line):
+            target_idx = i
+            break
+    if target_idx == -1:
+        return md
+    # Find next heading line after target
+    end_idx = len(lines)
+    for j in range(target_idx + 1, len(lines)):
+        if re.match(r"^\s*#{1,6}\s+", lines[j]):
+            end_idx = j
+            break
+    new_lines = lines[:target_idx] + lines[end_idx:]
+    return "\n".join(new_lines)
+
+
+def _replace_section_by_heading(md: str, heading: str, new_content: str) -> str:
+    import re
+    lines = md.splitlines()
+    target_idx = -1
+    for i, line in enumerate(lines):
+        if re.match(r"^\s*#{1,6}\s+" + re.escape(heading.strip()) + r"\s*$", line):
+            target_idx = i
+            break
+    if target_idx == -1:
+        # If heading not found, append as a new section at end
+        return md.rstrip() + f"\n\n## {heading}\n\n{new_content}\n"
+    end_idx = len(lines)
+    for j in range(target_idx + 1, len(lines)):
+        if re.match(r"^\s*#{1,6}\s+", lines[j]):
+            end_idx = j
+            break
+    # Keep heading line, replace its body
+    new_lines = lines[: target_idx + 1] + [""] + new_content.splitlines() + [""] + lines[end_idx:]
+    return "\n".join(new_lines)
+
+
+@project_router.post(
+    "/{project_id}/postgis-connections/{connection_id}/docs/ops/delete_by_heading",
+    operation_id="doc_op_delete_by_heading",
+)
+async def doc_op_delete_by_heading(
+    connection_id: str,
+    req: DeleteByHeadingRequest,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    async with get_async_db_connection() as conn:
+        cur = await conn.fetchrow(
+            """
+            SELECT id, friendly_name, summary_md
+            FROM project_postgres_summary
+            WHERE connection_id = $1
+            ORDER BY generated_at DESC NULLS LAST
+            LIMIT 1
+            """,
+            connection_id,
+        )
+        if not cur:
+            raise HTTPException(status_code=404, detail="no current summary")
+        updated = _delete_section_by_heading(cur["summary_md"] or "", req.heading)
+        new_id = gen_summary_id(prefix="S")
+        await conn.execute(
+            "INSERT INTO project_postgres_summary (id, connection_id, friendly_name, summary_md) VALUES ($1,$2,$3,$4)",
+            new_id,
+            connection_id,
+            cur["friendly_name"] or "",
+            updated,
+        )
+    return {"message": "deleted", "summary_id": new_id}
+
+
+@project_router.post(
+    "/{project_id}/postgis-connections/{connection_id}/docs/ops/replace_by_heading",
+    operation_id="doc_op_replace_by_heading",
+)
+async def doc_op_replace_by_heading(
+    connection_id: str,
+    req: ReplaceByHeadingRequest,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    async with get_async_db_connection() as conn:
+        cur = await conn.fetchrow(
+            """
+            SELECT id, friendly_name, summary_md
+            FROM project_postgres_summary
+            WHERE connection_id = $1
+            ORDER BY generated_at DESC NULLS LAST
+            LIMIT 1
+            """,
+            connection_id,
+        )
+        if not cur:
+            raise HTTPException(status_code=404, detail="no current summary")
+        updated = _replace_section_by_heading(cur["summary_md"] or "", req.heading, req.new_content)
+        new_id = gen_summary_id(prefix="S")
+        await conn.execute(
+            "INSERT INTO project_postgres_summary (id, connection_id, friendly_name, summary_md) VALUES ($1,$2,$3,$4)",
+            new_id,
+            connection_id,
+            cur["friendly_name"] or "",
+            updated,
+        )
+    return {"message": "replaced", "summary_id": new_id}

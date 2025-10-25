@@ -75,7 +75,75 @@ def _format_kg_section(stats: Dict[str, Any], language: str = "zh-CN") -> str:
     return "\n".join(lines)
 
 
+async def _list_project_docs(project_id: str) -> list[dict[str, Any]]:
+    """List knowledge docs for a project from S3 (no DB schema change)."""
+    from src.utils import get_async_s3_client, get_bucket_name
+    s3 = await get_async_s3_client()
+    bucket = get_bucket_name()
+    prefix = f"knowledge_docs/{project_id}/"
+    docs: dict[str, dict[str, Any]] = {}
+
+    paginator = s3.get_paginator("list_objects_v2")
+    async for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []) if page else []:
+            key = obj["Key"]
+            parts = key.split("/")
+            if len(parts) < 4:
+                continue
+            _, pid, doc_id, filename = parts[0], parts[1], parts[2], "/".join(parts[3:])
+            d = docs.setdefault(doc_id, {"doc_id": doc_id, "filename": filename, "size": 0, "uploaded_at": obj.get("LastModified").isoformat() if obj.get("LastModified") else None})
+            d["size"] += int(obj.get("Size", 0))
+    return sorted(docs.values(), key=lambda x: x.get("uploaded_at") or "")
+
+
+async def _read_doc_head(project_id: str, doc_id: str, max_bytes: int = 2000) -> tuple[str, bytes]:
+    from src.utils import get_async_s3_client, get_bucket_name
+    s3 = await get_async_s3_client()
+    bucket = get_bucket_name()
+    prefix = f"knowledge_docs/{project_id}/{doc_id}/"
+    # Read the first object under this doc_id (assume single file)
+    resp = await s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=1)
+    contents = resp.get("Contents") if resp else None
+    if not contents:
+        return "", b""
+    key = contents[0]["Key"]
+    head = await s3.get_object(Bucket=bucket, Key=key, Range=f"bytes=0-{max_bytes-1}")
+    data = await head["Body"].read()
+    filename = key.split("/")[-1]
+    return filename, data
+
+
+def _format_domain_docs_section(project_id: str, docs: list[dict[str, Any]], language: str = "zh-CN") -> str:
+    if not docs:
+        return ""
+    if language.lower().startswith("zh"):
+        title = "## 领域知识文档"
+        header = "以下为已上传的专业文档："
+    else:
+        title = "## Domain Knowledge Documents"
+        header = "Uploaded domain documents:"
+    lines = [title, header]
+    for d in docs:
+        lines.append(f"- {d.get('filename')} (id={d.get('doc_id')})")
+    return "\n".join(lines) + "\n"
+
+
+def _format_domain_snippets(snippets: list[tuple[str, str]], language: str = "zh-CN") -> str:
+    if not snippets:
+        return ""
+    title = "## 领域知识片段" if language.lower().startswith("zh") else "## Domain Snippets"
+    lines = [title]
+    for fname, text in snippets:
+        # Keep it short and safe
+        text = text.replace("\r\n", "\n").strip()
+        if len(text) > 600:
+            text = text[:600] + "…"
+        lines.append(f"**{fname}**\n\n{text}\n")
+    return "\n".join(lines) + "\n"
+
+
 async def generate_enriched_markdown(
+    project_id: str,
     connection_id: str,
     *,
     language: str = "zh-CN",
@@ -95,9 +163,25 @@ async def generate_enriched_markdown(
         stats = await graph_service.get_graph_stats()
         sections.append(_format_kg_section(stats, language))
 
-    # Domain docs and spatial sections are placeholders for now (future phases)
-    # if useDomainDocs: ...
-    # if useSpatial: ...
+    if useDomainDocs:
+        docs = await _list_project_docs(project_id)
+        sections.append(_format_domain_docs_section(project_id, docs, language))
+        # Pull small head snippets from up to 3 docs
+        snippets: list[tuple[str, str]] = []
+        for d in docs[:3]:
+            fname, data = await _read_doc_head(project_id, d["doc_id"], max_bytes=2000)
+            try:
+                text = data.decode("utf-8", errors="ignore")
+            except Exception:
+                text = ""
+            # Take first non-empty paragraph
+            para = next((p for p in text.split("\n\n") if p.strip()), "")
+            if para:
+                snippets.append((fname or d.get("filename", "doc"), para))
+        if snippets:
+            sections.append(_format_domain_snippets(snippets, language))
+
+    # if useSpatial: pass  # reserved for later
 
     separator = "\n\n---\n\n"
     enriched = base_md.rstrip() + separator + "\n\n".join(sections) + "\n"
@@ -108,10 +192,12 @@ async def generate_enriched_markdown(
 
 
 async def preview_enrichment(
+    project_id: str,
     connection_id: str,
     options: Dict[str, Any],
 ) -> Dict[str, Any]:
     friendly, md = await generate_enriched_markdown(
+        project_id,
         connection_id,
         language=options.get("language", "zh-CN"),
         useKG=bool(options.get("useKG", True)),
@@ -123,6 +209,7 @@ async def preview_enrichment(
 
 async def start_enrichment_job(
     job_id: str,
+    project_id: str,
     connection_id: str,
     options: Dict[str, Any],
 ) -> Optional[str]:
@@ -131,6 +218,7 @@ async def start_enrichment_job(
     try:
         redis.set(status_key, "running")
         friendly, md = await generate_enriched_markdown(
+            project_id,
             connection_id,
             language=options.get("language", "zh-CN"),
             useKG=bool(options.get("useKG", True)),

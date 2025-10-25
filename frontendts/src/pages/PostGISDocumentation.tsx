@@ -37,6 +37,12 @@ const PostGISDocumentation = () => {
   const [isApplyingEnrich, setIsApplyingEnrich] = useState(false);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
 
+  // Knowledge docs state (simple MVP)
+  const [docs, setDocs] = useState<Array<{ doc_id: string; filename: string; size: number; uploaded_at?: string }>>([]);
+  const [docError, setDocError] = useState<string | null>(null);
+  const [docUploading, setDocUploading] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
+
   const fetchDocumentation = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -157,7 +163,7 @@ const PostGISDocumentation = () => {
     setIsPreviewingEnrich(true);
     setError(null);
     try {
-      const params = new URLSearchParams({ useKG: 'true', language: 'zh-CN' });
+      const params = new URLSearchParams({ useKG: 'true', useDomainDocs: 'true', language: 'zh-CN' });
       const resp = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/enrich/preview?${params}`);
       if (!resp.ok) throw new Error(`Failed to preview enrichment: ${resp.statusText}`);
       const data = await resp.json();
@@ -170,6 +176,49 @@ const PostGISDocumentation = () => {
     }
   };
 
+  const fetchDocs = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      const r = await fetch(`/api/projects/${projectId}/knowledge/docs`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      setDocs(data.items || []);
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : 'Failed to load docs');
+    }
+  }, [projectId]);
+
+  useEffect(() => { if (projectId) void fetchDocs(); }, [projectId, fetchDocs]);
+
+  const handleUploadDoc = async () => {
+    if (!projectId || !docFile) return;
+    setDocUploading(true);
+    setDocError(null);
+    try {
+      const fd = new FormData();
+      fd.append('file', docFile);
+      const r = await fetch(`/api/projects/${projectId}/knowledge/docs`, { method: 'POST', body: fd });
+      if (!r.ok) throw new Error(await r.text());
+      await fetchDocs();
+      setDocFile(null);
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : 'Failed to upload');
+    } finally {
+      setDocUploading(false);
+    }
+  };
+
+  const handleDeleteDoc = async (doc_id: string) => {
+    if (!projectId) return;
+    try {
+      const r = await fetch(`/api/projects/${projectId}/knowledge/docs/${doc_id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error(await r.text());
+      await fetchDocs();
+    } catch (e) {
+      setDocError(e instanceof Error ? e.message : 'Failed to delete');
+    }
+  };
+
   const handleApplyEnrich = async () => {
     if (!connectionId || !projectId) return;
     setIsApplyingEnrich(true);
@@ -178,7 +227,7 @@ const PostGISDocumentation = () => {
       const resp = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/enrich/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ useKG: true, language: 'zh-CN' }),
+        body: JSON.stringify({ useKG: true, useDomainDocs: true, language: 'zh-CN' }),
       });
       if (!resp.ok) throw new Error(`Failed to start enrichment: ${resp.statusText}`);
       const data = await resp.json();
@@ -302,6 +351,54 @@ If documentation generation fails, this indicates the database connection detail
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
+        {/* Knowledge Docs (simple) */}
+        <div className="border-b p-4 flex items-center gap-3">
+          <span className="text-sm font-medium">Knowledge Docs</span>
+          <input
+            type="file"
+            onChange={(e) => setDocFile(e.target.files?.[0] || null)}
+            className="text-sm"
+          />
+          <Button size="sm" onClick={handleUploadDoc} disabled={!docFile || docUploading}>
+            {docUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Upload'}
+          </Button>
+          {docError && <span className="text-xs text-red-400">{docError}</span>}
+          <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+            <span>Docs:</span>
+            {docs.length === 0 ? (
+              <span>0</span>
+            ) : (
+              <div className="flex items-center gap-2">
+                {docs.map(d => (
+                  <div key={d.doc_id} className="flex items-center gap-2">
+                    <span title={d.filename}>{d.filename.length > 18 ? d.filename.slice(0,18) + '…' : d.filename}</span>
+                    <label className="underline cursor-pointer">
+                      replace
+                      <input type="file" className="hidden" onChange={async (e) => {
+                        const f = e.target.files?.[0];
+                        if (!f || !projectId) return;
+                        try {
+                          const fd = new FormData();
+                          fd.append('file', f);
+                          const r = await fetch(`/api/projects/${projectId}/knowledge/docs/${d.doc_id}`, { method: 'PUT', body: fd });
+                          if (!r.ok) throw new Error(await r.text());
+                          await fetchDocs();
+                        } catch (e) {
+                          setDocError(e instanceof Error ? e.message : 'Failed to replace');
+                        }
+                      }} />
+                    </label>
+                    <button className="text-red-400 hover:underline" onClick={() => handleDeleteDoc(d.doc_id)}>del</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Versions and Ops (simple) */}
+        <div className="border-b p-4 flex items-center gap-3 text-sm">
+          <VersionsAndOps projectId={projectId} connectionId={connectionId || ''} onUpdated={fetchDocumentation} />
+        </div>
         <div className="flex h-full">
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto">
@@ -483,5 +580,73 @@ If documentation generation fails, this indicates the database connection detail
     </div>
   );
 };
+
+function VersionsAndOps({ projectId, connectionId, onUpdated }: { projectId: string; connectionId: string; onUpdated: () => void }) {
+  const [versions, setVersions] = useState<Array<{ summary_id: string; friendly_name: string; generated_at?: string }>>([]);
+  const [sel, setSel] = useState<string>('');
+  const [opHeading, setOpHeading] = useState('');
+  const [opReplace, setOpReplace] = useState('');
+  const [err, setErr] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!projectId || !connectionId) return;
+    try {
+      const r = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/versions`);
+      if (!r.ok) throw new Error(await r.text());
+      const d = await r.json();
+      setVersions(d.items || []);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to load versions');
+    }
+  }, [projectId, connectionId]);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const rollback = async () => {
+    if (!sel) return;
+    const r = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/rollback`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ summary_id: sel })
+    });
+    if (!r.ok) { setErr(await r.text()); return; }
+    await load(); onUpdated();
+  };
+
+  const delByHeading = async () => {
+    if (!opHeading) return;
+    const r = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/ops/delete_by_heading`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ heading: opHeading })
+    });
+    if (!r.ok) { setErr(await r.text()); return; }
+    await load(); onUpdated();
+  };
+
+  const replaceByHeading = async () => {
+    if (!opHeading) return;
+    const r = await fetch(`/api/projects/${projectId}/postgis-connections/${connectionId}/docs/ops/replace_by_heading`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ heading: opHeading, new_content: opReplace })
+    });
+    if (!r.ok) { setErr(await r.text()); return; }
+    await load(); onUpdated();
+  };
+
+  return (
+    <div className="w-full flex items-center gap-3">
+      <span className="font-medium">Versions</span>
+      <select className="border rounded px-2 py-1" value={sel} onChange={(e) => setSel(e.target.value)}>
+        <option value="">Latest</option>
+        {versions.map(v => (
+          <option key={v.summary_id} value={v.summary_id}>{(v.generated_at || '').slice(0,19).replace('T',' ')} · {v.friendly_name}</option>
+        ))}
+      </select>
+      <Button size="sm" variant="outline" onClick={rollback} disabled={!sel}>Rollback to</Button>
+      <span className="ml-6 font-medium">Ops</span>
+      <input className="border rounded px-2 py-1" placeholder="Heading (exact)" value={opHeading} onChange={(e)=>setOpHeading(e.target.value)} />
+      <Button size="sm" onClick={delByHeading} disabled={!opHeading}>Delete section</Button>
+      <input className="border rounded px-2 py-1 w-64" placeholder="Replace content" value={opReplace} onChange={(e)=>setOpReplace(e.target.value)} />
+      <Button size="sm" onClick={replaceByHeading} disabled={!opHeading}>Replace</Button>
+      {err && <span className="text-xs text-red-400">{err}</span>}
+    </div>
+  );
+}
 
 export default PostGISDocumentation;
