@@ -60,7 +60,7 @@ class OpenStreetMapProvider(BaseMapProvider):
         """Return a MapLibre GL style for the specified basemap.
 
         Args:
-            name: Basemap name - supports 'openstreetmap' and 'openfreemap' (default: 'openstreetmap')
+            name: Basemap name - supports 'openstreetmap', 'openfreemap', and 'none' (default: 'openstreetmap')
         """
         # Default to openstreetmap if no name provided
         basemap_name = name or "openstreetmap"
@@ -73,6 +73,18 @@ class OpenStreetMapProvider(BaseMapProvider):
                 )
                 response.raise_for_status()
                 return response.json()
+        elif basemap_name == "none":
+            # Return an empty style with no basemap layers
+            return {
+                "version": 8,
+                "name": "No Basemap",
+                "sources": {},
+                "layers": [],
+                "center": [0, 0],
+                "zoom": 2,
+                "bearing": 0,
+                "pitch": 0,
+            }
         else:
             # Default OpenStreetMap style
             return {
@@ -108,7 +120,7 @@ class OpenStreetMapProvider(BaseMapProvider):
 
     def get_available_styles(self) -> List[str]:
         """Return list of available basemap style names."""
-        return ["openstreetmap", "openfreemap"]
+        return ["openstreetmap", "openfreemap", "none"]
 
     def get_csp_policies(self) -> Dict[str, List[str]]:
         """Return CSP policies required for OpenStreetMap and OpenFreeMap tiles."""
@@ -131,7 +143,7 @@ class OpenStreetMapProvider(BaseMapProvider):
 
     def get_style_display_names(self) -> Dict[str, str]:
         """Return mapping of style names to human-readable display names."""
-        return {"openstreetmap": "OpenStreetMap", "openfreemap": "OpenFreeMap"}
+        return {"openstreetmap": "OpenStreetMap", "openfreemap": "OpenFreeMap", "none": "No Basemap"}
 
     def get_default_preview_path(self) -> str:
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "osm.webp")

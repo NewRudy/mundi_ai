@@ -388,7 +388,8 @@ export default function MapLibreMap({
         if (response.ok) {
           // Invalidate style query to trigger immediate re-fetch with new basemap
           await queryClient.invalidateQueries({
-            queryKey: ['mapStyle', urlMapId],
+            // Invalidate all mapStyle queries to ensure style.json is re-fetched
+            queryKey: ['mapStyle'],
           });
         } else {
           console.error('Failed to update basemap:', await response.text());

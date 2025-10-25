@@ -1036,6 +1036,12 @@ async def get_map_style_internal(
     effective_basemap = basemap or map_result["basemap"]
     style_json = await base_map.get_base_style(effective_basemap)
 
+    # Ensure required fields for text/symbol layers
+    if "glyphs" not in style_json:
+        style_json["glyphs"] = "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf"
+    if "layers" not in style_json:
+        style_json["layers"] = []
+
     # Add current basemap to style metadata for frontend
     if "metadata" not in style_json:
         style_json["metadata"] = {}
