@@ -139,7 +139,7 @@ async def api_schema_info():
 # Graph query and visualization
 @router.get("/graph/stats")
 async def api_graph_stats():
-    """Get graph database statistics"""
+    """Get graph database statistics""" 
     try:
         return await graph_service.get_graph_stats()
     except Exception as e:
