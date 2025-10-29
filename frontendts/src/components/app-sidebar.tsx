@@ -134,6 +134,14 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Import Instances">
+                  <Link to={`/kg/import/instances`}>
+                    <GitBranch className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Import Instances</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

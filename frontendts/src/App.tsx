@@ -19,6 +19,7 @@ import './App.css';
 import KgNew from './pages/KgNew';
 import KgOverview from './pages/KgOverview';
 import KgSchemaManager from './pages/KgSchemaManager';
+import KgInstanceImport from './pages/KgInstanceImport';
 import { Routes as EERoutes, OptionalAuth, Provider, RequireAuth } from '@mundi/ee';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
@@ -104,6 +105,14 @@ function AppContent() {
               element={
                 <RequireAuth>
                   <KgSchemaManager />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/kg/import/instances"
+              element={
+                <RequireAuth>
+                  <KgInstanceImport />
                 </RequireAuth>
               }
             />
