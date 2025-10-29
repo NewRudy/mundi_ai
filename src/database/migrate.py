@@ -37,7 +37,8 @@ async def run_migrations():
 
         def run_upgrade():
             """Run the synchronous alembic upgrade in a thread"""
-            command.upgrade(alembic_cfg, "head")
+            # Use "heads" to support multiple head revisions gracefully
+            command.upgrade(alembic_cfg, "heads")
 
         try:
             # Run synchronous Alembic command in a thread pool with timeout

@@ -26,7 +26,7 @@ except Exception:
 if TYPE_CHECKING:
     from neo4j import AsyncSession  # type: ignore
 
-from src.dependencies.neo4j_connection import get_neo4j_session
+from src.dependencies.neo4j_connection import get_neo4j_session, get_neo4j_session_for_connection
 from src.models.graph_models import (
     GraphNode, GraphRelationship, GraphQuery, GraphQueryResult,
     NodeType, RelationshipType,
@@ -39,6 +39,11 @@ from src.models.graph_models import (
 class GraphService:
     """Neo4j graph database service for spatial-temporal knowledge graph operations"""
     
+    def _session_ctx(self, connection_id: Optional[str]):
+        if connection_id:
+            return get_neo4j_session_for_connection(connection_id)
+        return get_neo4j_session()
+
     @staticmethod
     def _convert_properties_for_neo4j(properties: Dict[str, Any]) -> Dict[str, Any]:
         """Convert properties for Neo4j storage (handle datetime, etc.)"""
@@ -80,9 +85,9 @@ class GraphService:
             converted[key] = value
         return converted
     
-    async def create_node(self, node_data: Union[GraphNode, CreateNodeRequest]) -> str:
+    async def create_node(self, node_data: Union[GraphNode, CreateNodeRequest], connection_id: Optional[str] = None) -> str:
         """Create a new node in the graph"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             if isinstance(node_data, CreateNodeRequest):
                 labels = [node_data.node_type.value]
                 properties = node_data.properties
@@ -113,9 +118,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to create node: {e}")
     
-    async def get_node(self, node_id: str) -> Optional[Dict[str, Any]]:
+    async def get_node(self, node_id: str, connection_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get a node by ID"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             cypher = "MATCH (n {id: $node_id}) RETURN n, labels(n) as labels"
             
             try:
@@ -133,9 +138,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to get node: {e}")
     
-    async def update_node(self, node_id: str, properties: Dict[str, Any]) -> bool:
+    async def update_node(self, node_id: str, properties: Dict[str, Any], connection_id: Optional[str] = None) -> bool:
         """Update a node's properties"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             properties['updated_at'] = datetime.now().isoformat()
             neo4j_properties = self._convert_properties_for_neo4j(properties)
             
@@ -145,12 +150,12 @@ class GraphService:
                 result = await session.run(cypher, node_id=node_id, properties=neo4j_properties)
                 record = await result.single()
                 return record is not None
-            except Neo4jError as e:
+            except _Neo4jError as e:
                 raise Exception(f"Failed to update node: {e}")
     
-    async def delete_node(self, node_id: str) -> bool:
+    async def delete_node(self, node_id: str, connection_id: Optional[str] = None) -> bool:
         """Delete a node and all its relationships"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             cypher = "MATCH (n {id: $node_id}) DETACH DELETE n RETURN count(n) as deleted_count"
             
             try:
@@ -160,9 +165,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to delete node: {e}")
     
-    async def create_relationship(self, relationship_data: Union[GraphRelationship, CreateRelationshipRequest]) -> str:
+    async def create_relationship(self, relationship_data: Union[GraphRelationship, CreateRelationshipRequest], connection_id: Optional[str] = None) -> str:
         """Create a relationship between two nodes"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             if isinstance(relationship_data, CreateRelationshipRequest):
                 start_node_id = relationship_data.start_node_id
                 end_node_id = relationship_data.end_node_id
@@ -201,9 +206,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to create relationship: {e}")
     
-    async def get_node_relationships(self, node_id: str, direction: str = "both") -> List[Dict[str, Any]]:
+    async def get_node_relationships(self, node_id: str, direction: str = "both", connection_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all relationships for a node"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             if direction.lower() == "outgoing":
                 cypher = """
                 MATCH (n {id: $node_id})-[r]->(m)
@@ -235,9 +240,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to get relationships: {e}")
     
-    async def delete_relationship(self, relationship_id: str) -> bool:
+    async def delete_relationship(self, relationship_id: str, connection_id: Optional[str] = None) -> bool:
         """Delete a relationship by ID"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             cypher = "MATCH ()-[r {id: $rel_id}]-() DELETE r RETURN count(r) as deleted_count"
             
             try:
@@ -247,9 +252,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to delete relationship: {e}")
     
-    async def find_nodes_by_properties(self, properties: Dict[str, Any], labels: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+    async def find_nodes_by_properties(self, properties: Dict[str, Any], labels: Optional[List[str]] = None, connection_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Find nodes by properties and optional labels"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             # Build labels part of query
             labels_str = ""
             if labels:
@@ -281,9 +286,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to find nodes: {e}")
     
-    async def find_spatial_neighbors(self, location_name: str, max_distance_km: float = 100) -> List[Dict[str, Any]]:
+    async def find_spatial_neighbors(self, location_name: str, max_distance_km: float = 100, connection_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Find spatial neighbors within a distance (simplified version)"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             cypher = """
             MATCH (center:Location {name: $location_name})
             MATCH (neighbor:Location)
@@ -307,9 +312,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to find spatial neighbors: {e}")
     
-    async def execute_cypher_query(self, query: GraphQuery) -> GraphQueryResult:
+    async def execute_cypher_query(self, query: GraphQuery, connection_id: Optional[str] = None) -> GraphQueryResult:
         """Execute a custom Cypher query"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             try:
                 result = await session.run(query.cypher, **query.parameters)
                 records = []
@@ -331,9 +336,9 @@ class GraphService:
             except _Neo4jError as e:
                 raise Exception(f"Failed to execute query: {e}")
     
-    async def get_graph_stats(self) -> Dict[str, Any]:
+    async def get_graph_stats(self, connection_id: Optional[str] = None) -> Dict[str, Any]:
         """Get graph database statistics"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             try:
                 # Get node counts by label
                 cypher_nodes = """
@@ -368,9 +373,9 @@ class GraphService:
                 raise Exception(f"Failed to get graph stats: {e}")
     
     async def search_nodes(self, name: Optional[str] = None, labels: Optional[List[str]] = None, 
-                          limit: int = 100, offset: int = 0) -> Dict[str, Any]:
+                          limit: int = 100, offset: int = 0, connection_id: Optional[str] = None) -> Dict[str, Any]:
         """Search nodes by name and/or labels with pagination"""
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             # Build query dynamically
             label_filter = ""
             if labels:
@@ -425,7 +430,7 @@ class GraphService:
     
     async def extract_subgraph(self, root_id: str, depth: int = 2, 
                               labels: Optional[List[str]] = None,
-                              limit: int = 200, offset: int = 0) -> Dict[str, Any]:
+                              limit: int = 200, offset: int = 0, connection_id: Optional[str] = None) -> Dict[str, Any]:
         """Extract a subgraph starting from a root node
         
         Args:
@@ -438,7 +443,7 @@ class GraphService:
         Returns:
             Dict with nodes, relationships, and pagination info
         """
-        async with get_neo4j_session() as session:
+        async with self._session_ctx(connection_id) as session:
             # Enforce limits per design doc
             depth = max(1, min(depth, 3))
             limit = max(1, min(limit, 1000))

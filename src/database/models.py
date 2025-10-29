@@ -73,6 +73,9 @@ class MundiProject(Base):
     postgres_connections = relationship(
         "ProjectPostgresConnection", back_populates="project"
     )
+    neo4j_connections = relationship(
+        "ProjectNeo4jConnection", back_populates="project"
+    )
 
 
 class MundiMap(Base):
@@ -155,6 +158,24 @@ class ProjectPostgresSummary(Base):
 
     # Relationships
     connection = relationship("ProjectPostgresConnection", back_populates="summaries")
+
+
+class ProjectNeo4jConnection(Base):
+    __tablename__ = "project_neo4j_connections"
+
+    id = Column(String(12), primary_key=True)
+    project_id = Column(String(12), ForeignKey("user_mundiai_projects.id"), nullable=False)
+    user_id = Column(UUID, nullable=False)
+    connection_uri = Column(Text, nullable=False)
+    connection_name = Column(String(255))
+    created_at = Column(TIMESTAMP(timezone=True), server_default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP(timezone=True), server_default=func.current_timestamp())
+    last_error_text = Column(Text, nullable=True)
+    last_error_timestamp = Column(TIMESTAMP(timezone=True), nullable=True)
+    soft_deleted_at = Column(TIMESTAMP(timezone=True))
+
+    # Relationships
+    project = relationship("MundiProject", back_populates="neo4j_connections")
 
 
 class MapLayer(Base):

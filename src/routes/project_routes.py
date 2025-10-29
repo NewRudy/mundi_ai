@@ -67,6 +67,12 @@ from src.dependencies.postgres_connection import (
     PostgresConnectionURIError,
     PostgresConfigurationError,
 )
+from src.dependencies.neo4j_connection_manager import (
+    get_neo4j_connection_manager,
+    verify_neo4j_uri,
+    Neo4jConnectionURIError as Neo4jURIError,
+    Neo4jConfigurationError as Neo4jConfigError,
+)
 from src.dependencies.dag import get_project, edit_project
 from src.routes.postgres_routes import (
     generate_id,
@@ -404,6 +410,24 @@ class DatabaseDocumentationResponse(BaseModel):
     friendly_name: Optional[str] = None
     documentation: Optional[str] = None
     generated_at: Optional[datetime] = None
+
+
+# ---- Neo4j external connections ----
+class Neo4jConnectionRequest(BaseModel):
+    connection_uri: str
+    connection_name: Optional[str] = None
+
+
+class Neo4jCreateConnectionResponse(BaseModel):
+    message: str
+    connection_id: str
+
+
+class Neo4jConnectionListItem(BaseModel):
+    connection_id: str
+    connection_name: Optional[str] = None
+    last_error_text: Optional[str] = None
+    last_error_timestamp: Optional[datetime] = None
 
 
 @project_router.post(
@@ -789,6 +813,150 @@ async def get_demo_postgis_config():
         return DemoPostgisConfigResponse(available=False)
 
     return DemoPostgisConfigResponse(available=True, description=demo_description)
+
+
+@project_router.post(
+    "/{project_id}/neo4j-connections",
+    response_model=Neo4jCreateConnectionResponse,
+    operation_id="add_neo4j_connection",
+)
+async def add_neo4j_connection(
+    connection_data: Neo4jConnectionRequest,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    user_id = session.get_user_id()
+
+    # Validate and normalize URI per policy
+    try:
+        processed_uri, _ = verify_neo4j_uri(connection_data.connection_uri)
+    except Neo4jURIError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=e.message)
+    except Neo4jConfigError:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    connection_id = generate_id(prefix="G")
+    async with get_async_db_connection() as conn:
+        await conn.execute(
+            """
+            INSERT INTO project_neo4j_connections (id, project_id, user_id, connection_uri, connection_name)
+            VALUES ($1, $2, $3, $4, $5)
+            """,
+            connection_id,
+            project.id,
+            user_id,
+            processed_uri,
+            connection_data.connection_name,
+        )
+
+    # Optionally attempt connectivity to populate error state immediately
+    try:
+        manager = get_neo4j_connection_manager()
+        from contextlib import AsyncExitStack
+        async with AsyncExitStack() as stack:
+            session_ctx = manager.session_for_connection(connection_id)
+            session = await stack.enter_async_context(session_ctx)
+            await session.run("RETURN 1 AS ok")
+    except Exception:
+        # Error is already recorded by manager; do not fail creation
+        pass
+
+    return Neo4jCreateConnectionResponse(message="Neo4j connection added successfully", connection_id=connection_id)
+
+
+@project_router.get(
+    "/{project_id}/neo4j-connections",
+    response_model=List[Neo4jConnectionListItem],
+    operation_id="list_neo4j_connections",
+)
+async def list_neo4j_connections(
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    if str(project.owner_uuid) != session.get_user_id():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the project owner can view connections")
+
+    async with get_async_db_connection() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, connection_name, last_error_text, last_error_timestamp
+            FROM project_neo4j_connections
+            WHERE project_id = $1 AND soft_deleted_at IS NULL
+            ORDER BY created_at ASC
+            """,
+            project.id,
+        )
+    return [
+        Neo4jConnectionListItem(
+            connection_id=r["id"],
+            connection_name=r["connection_name"],
+            last_error_text=r["last_error_text"],
+            last_error_timestamp=r["last_error_timestamp"],
+        )
+        for r in rows
+    ]
+
+
+@project_router.delete(
+    "/{project_id}/neo4j-connections/{connection_id}",
+    response_model=PostgresConnectionResponse,
+    operation_id="soft_delete_neo4j_connection",
+)
+async def soft_delete_neo4j_connection(
+    connection_id: str,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    async with get_async_db_connection() as conn:
+        connection = await conn.fetchrow(
+            """
+            SELECT id, soft_deleted_at
+            FROM project_neo4j_connections
+            WHERE id = $1 AND project_id = $2
+            """,
+            connection_id,
+            project.id,
+        )
+        if not connection:
+            raise HTTPException(status_code=404, detail="Neo4j connection not found")
+        if connection["soft_deleted_at"] is not None:
+            raise HTTPException(status_code=409, detail="Neo4j connection is already deleted")
+        await conn.execute(
+            """
+            UPDATE project_neo4j_connections
+            SET soft_deleted_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND project_id = $2
+            """,
+            connection_id,
+            project.id,
+        )
+    return PostgresConnectionResponse(success=True, message="Neo4j connection deleted successfully")
+
+
+@project_router.get(
+    "/{project_id}/neo4j-connections/{connection_id}/stats",
+    operation_id="get_neo4j_connection_stats",
+)
+async def get_neo4j_connection_stats(
+    connection_id: str,
+    project: MundiProject = Depends(get_project),
+    session: UserContext = Depends(verify_session_required),
+):
+    # Validate connection belongs to project
+    async with get_async_db_connection() as conn:
+        ok = await conn.fetchval(
+            """
+            SELECT 1 FROM project_neo4j_connections
+            WHERE id = $1 AND project_id = $2 AND soft_deleted_at IS NULL
+            """,
+            connection_id,
+            project.id,
+        )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Neo4j connection not found")
+
+    # Delegate to graph service
+    return await graph_service.get_graph_stats(connection_id=connection_id)
 
 
 @project_router.get("/embed/v1/{project_id}.html", response_class=HTMLResponse)

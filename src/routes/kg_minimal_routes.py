@@ -22,9 +22,9 @@ class ApplyConfigRequest(BaseModel):
 
 
 @router.post("/apply-config")
-async def api_apply_config(req: ApplyConfigRequest):
+async def api_apply_config(req: ApplyConfigRequest, connection_id: str | None = Query(None)):
     try:
-        result = await apply_config_yaml(req.config_yaml)
+        result = await apply_config_yaml(req.config_yaml, connection_id=connection_id)
         return {"message": "Config applied", **result}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -38,10 +38,10 @@ class UpsertInstanceItem(BaseModel):
 
 
 @router.post("/upsert-instances")
-async def api_upsert_instances(items: List[UpsertInstanceItem]):
+async def api_upsert_instances(items: List[UpsertInstanceItem], connection_id: str | None = Query(None)):
     try:
         payload = [item.model_dump() for item in items]
-        return await upsert_instances(payload)
+        return await upsert_instances(payload, connection_id=connection_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -54,10 +54,10 @@ class SpatialEndpointItem(BaseModel):
 
 
 @router.post("/relationships/spatial")
-async def api_spatial_relationships(items: List[SpatialEndpointItem]):
+async def api_spatial_relationships(items: List[SpatialEndpointItem], connection_id: str | None = Query(None)):
     try:
         payload = [item.model_dump() for item in items]
-        return await ingest_spatial_relationships(payload)
+        return await ingest_spatial_relationships(payload, connection_id=connection_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -76,10 +76,10 @@ class LLMTriple(BaseModel):
 
 
 @router.post("/ingest/llm-triples")
-async def api_llm_triples(triples: List[LLMTriple]):
+async def api_llm_triples(triples: List[LLMTriple], connection_id: str | None = Query(None)):
     try:
         payload = [t.model_dump() for t in triples]
-        return await ingest_llm_triples(payload)
+        return await ingest_llm_triples(payload, connection_id=connection_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -89,9 +89,9 @@ class OntologyJSONPayload(BaseModel):
 
 
 @router.post("/apply-ontology-json")
-async def api_apply_ontology_json(req: OntologyJSONPayload):
+async def api_apply_ontology_json(req: OntologyJSONPayload, connection_id: str | None = Query(None)):
     try:
-        return await apply_ontology_json(req.ontology_json)
+        return await apply_ontology_json(req.ontology_json, connection_id=connection_id)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -138,10 +138,10 @@ async def api_schema_info():
 
 # Graph query and visualization
 @router.get("/graph/stats")
-async def api_graph_stats():
+async def api_graph_stats(connection_id: str | None = Query(None)):
     """Get graph database statistics""" 
     try:
-        return await graph_service.get_graph_stats()
+        return await graph_service.get_graph_stats(connection_id=connection_id)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -151,7 +151,8 @@ async def api_search_nodes(
     name: Optional[str] = Query(None, description="Search by node name"),
     labels: Optional[str] = Query(None, description="Comma-separated labels to filter"),
     limit: int = Query(100, ge=1, le=1000),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    connection_id: str | None = Query(None)
 ):
     """Search nodes by name and/or labels"""
     try:
@@ -160,7 +161,8 @@ async def api_search_nodes(
             name=name,
             labels=label_list,
             limit=limit,
-            offset=offset
+            offset=offset,
+            connection_id=connection_id,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -172,7 +174,8 @@ async def api_extract_subgraph(
     depth: int = Query(2, ge=1, le=3, description="Maximum traversal depth (1-3)"),
     labels: Optional[str] = Query(None, description="Comma-separated labels to filter"),
     limit: int = Query(200, ge=1, le=1000),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
+    connection_id: str | None = Query(None)
 ):
     """Extract a subgraph starting from a root node"""
     try:
@@ -182,7 +185,8 @@ async def api_extract_subgraph(
             depth=depth,
             labels=label_list,
             limit=limit,
-            offset=offset
+            offset=offset,
+            connection_id=connection_id,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

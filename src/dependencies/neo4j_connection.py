@@ -104,10 +104,19 @@ neo4j_connection = Neo4jConnection()
 
 @asynccontextmanager
 async def get_neo4j_session() -> AsyncGenerator[AsyncSession, None]:
-    """Dependency for getting Neo4j session"""
+    """Dependency for getting Neo4j session (default/internal connection)"""
     async with neo4j_connection.session() as session:
         yield session
 
+
+@asynccontextmanager
+async def get_neo4j_session_for_connection(connection_id: str) -> AsyncGenerator[AsyncSession, None]:
+    """Dependency for getting Neo4j session for external connection by id"""
+    from src.dependencies.neo4j_connection_manager import get_neo4j_connection_manager
+
+    manager = get_neo4j_connection_manager()
+    async with manager.session_for_connection(connection_id) as session:
+        yield session
 
 async def init_neo4j():
     """Initialize Neo4j connection on startup"""

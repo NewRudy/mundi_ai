@@ -91,25 +91,25 @@ def instance_node_id(table_name: str, pg_id: str) -> str:
 # Upsert helpers
 # -----------------------------
 
-async def _find_node_by_id(node_id: str) -> Optional[Dict[str, Any]]:
-    nodes = await graph_service.find_nodes_by_properties({"id": node_id})
+async def _find_node_by_id(node_id: str, connection_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    nodes = await graph_service.find_nodes_by_properties({"id": node_id}, connection_id=connection_id)
     return nodes[0] if nodes else None
 
 
-async def _ensure_node(labels: List[str], node_id: str, properties: Dict[str, Any]) -> str:
-    existing = await _find_node_by_id(node_id)
+async def _ensure_node(labels: List[str], node_id: str, properties: Dict[str, Any], connection_id: Optional[str] = None) -> str:
+    existing = await _find_node_by_id(node_id, connection_id=connection_id)
     if existing:
         # Update existing properties
-        await graph_service.update_node(node_id, properties)
+        await graph_service.update_node(node_id, properties, connection_id=connection_id)
         return node_id
 
     # Create new node
     node = GraphNode(labels=labels, properties={**properties, "id": node_id})
-    created_id = await graph_service.create_node(node)
+    created_id = await graph_service.create_node(node, connection_id=connection_id)
     return created_id
 
 
-async def _ensure_relationship(a_id: str, b_id: str, rel_type: str, rel_props: Optional[Dict[str, Any]] = None) -> None:
+async def _ensure_relationship(a_id: str, b_id: str, rel_type: str, rel_props: Optional[Dict[str, Any]] = None, connection_id: Optional[str] = None) -> None:
     # Use Cypher MERGE to avoid duplicates; rel_type must be sanitized (A-Z, underscore)
     if not rel_type or not rel_type.replace("_", "").isalnum():
         raise ValueError("Invalid relationship type")
@@ -121,14 +121,14 @@ async def _ensure_relationship(a_id: str, b_id: str, rel_type: str, rel_props: O
         f"MERGE (a)-[r:{rel_type}]->(b) "
         f"SET r += $props RETURN r"
     )
-    await graph_service.execute_cypher_query(GraphQuery(cypher=cypher, parameters={"a_id": a_id, "b_id": b_id, "props": props}))
+    await graph_service.execute_cypher_query(GraphQuery(cypher=cypher, parameters={"a_id": a_id, "b_id": b_id, "props": props}), connection_id=connection_id)
 
 
 # -----------------------------
 # Public API
 # -----------------------------
 
-async def apply_config_yaml(config_yaml: str) -> Dict[str, Any]:
+async def apply_config_yaml(config_yaml: str, connection_id: Optional[str] = None) -> Dict[str, Any]:
     """Apply YAML config to build ontology and table topology."""
     data = yaml.safe_load(config_yaml) or {}
     cfg = KGConfig.model_validate(data)
@@ -142,7 +142,7 @@ async def apply_config_yaml(config_yaml: str) -> Dict[str, Any]:
         if node.english_name:
             props["english_name"] = node.english_name
         props["node_kind"] = "Ontology"
-        await _ensure_node(["Ontology"], oid, props)
+        await _ensure_node(["Ontology"], oid, props, connection_id=connection_id)
         created["ontology"] += 1
 
     # Parent-child relationships
@@ -150,7 +150,7 @@ async def apply_config_yaml(config_yaml: str) -> Dict[str, Any]:
         if node.parent_id:
             child = ontology_node_id(node.id)
             parent = ontology_node_id(node.parent_id)
-            await _ensure_relationship(child, parent, "IS_A")
+            await _ensure_relationship(child, parent, "IS_A", connection_id=connection_id)
             created["relations"] += 1
 
     # 2) Table nodes and HAS_TABLE (Ontology->Table)
@@ -162,12 +162,12 @@ async def apply_config_yaml(config_yaml: str) -> Dict[str, Any]:
             "description": mapping.description,
             "node_kind": "Table",
         }
-        await _ensure_node(["Table"], tid, props)
+        await _ensure_node(["Table"], tid, props, connection_id=connection_id)
         created["tables"] += 1
 
         # Link to ontology
         oid = ontology_node_id(mapping.ontology_id)
-        await _ensure_relationship(oid, tid, "HAS_TABLE")
+        await _ensure_relationship(oid, tid, "HAS_TABLE", connection_id=connection_id)
         created["relations"] += 1
 
     return created
@@ -195,15 +195,15 @@ def ontology_json_to_kgconfig(data: Dict[str, Any]) -> KGConfig:
     return KGConfig(ontology_nodes=nodes, tables=[])
 
 
-async def apply_ontology_json(ontology_json: Dict[str, Any]) -> Dict[str, Any]:
+async def apply_ontology_json(ontology_json: Dict[str, Any], connection_id: Optional[str] = None) -> Dict[str, Any]:
     cfg = ontology_json_to_kgconfig(ontology_json)
     # Dump to YAML and reuse existing apply
     cfg_yaml = yaml.safe_dump(cfg.model_dump(mode="python"), allow_unicode=True, sort_keys=False)
-    created = await apply_config_yaml(cfg_yaml)
+    created = await apply_config_yaml(cfg_yaml, connection_id=connection_id)
     return {"ontology_created": created.get("ontology", 0), "relations_created": created.get("relations", 0)}
 
 
-async def upsert_instance(table_name: str, pg_id: str, name: Optional[str] = None, properties: Optional[Dict[str, Any]] = None) -> str:
+async def upsert_instance(table_name: str, pg_id: str, name: Optional[str] = None, properties: Optional[Dict[str, Any]] = None, connection_id: Optional[str] = None) -> str:
     """Create or update an Instance node and link to its Table node."""
     iid = instance_node_id(table_name, pg_id)
     props = {"pg_id": pg_id, "table_name": table_name, "node_kind": "Instance"}
@@ -213,28 +213,28 @@ async def upsert_instance(table_name: str, pg_id: str, name: Optional[str] = Non
         props.update(properties)
 
     # Ensure instance
-    await _ensure_node(["Instance"], iid, props)
+    await _ensure_node(["Instance"], iid, props, connection_id=connection_id)
 
     # Ensure INSTANCE_OF link to table
     tid = table_node_id(table_name)
-    await _ensure_relationship(iid, tid, "INSTANCE_OF")
+    await _ensure_relationship(iid, tid, "INSTANCE_OF", connection_id=connection_id)
     return iid
 
 
-async def upsert_instances(items: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def upsert_instances(items: List[Dict[str, Any]], connection_id: Optional[str] = None) -> Dict[str, Any]:
     created = []
     for it in items:
         table_name = it["table_name"]
         pg_id = str(it["pg_id"])  # normalize to string
         name = it.get("name")
         props = it.get("properties") or {}
-        iid = await upsert_instance(table_name, pg_id, name, props)
+        iid = await upsert_instance(table_name, pg_id, name, props, connection_id=connection_id)
         created.append(iid)
     return {"count": len(created), "instance_ids": created}
 
 
 # Spatial relationships ingestion (e.g., from QGIS outputs)
-async def ingest_spatial_relationships(relations: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def ingest_spatial_relationships(relations: List[Dict[str, Any]], connection_id: Optional[str] = None) -> Dict[str, Any]:
     """Ingest spatial relationships.
 
     Each relation item format:
@@ -262,13 +262,13 @@ async def ingest_spatial_relationships(relations: List[Dict[str, Any]]) -> Dict[
         else:
             sid = instance_node_id(s["table_name"], str(s["pg_id"]))
             # ensure node exists with minimal props
-            await _ensure_node(["Instance"], sid, {"node_kind": "Instance", "table_name": s["table_name"], "pg_id": str(s["pg_id"])})
+            await _ensure_node(["Instance"], sid, {"node_kind": "Instance", "table_name": s["table_name"], "pg_id": str(s["pg_id"])}, connection_id=connection_id)
 
         if "node_id" in t:
             tid = t["node_id"]
         else:
             tid = instance_node_id(t["table_name"], str(t["pg_id"]))
-            await _ensure_node(["Instance"], tid, {"node_kind": "Instance", "table_name": t["table_name"], "pg_id": str(t["pg_id"])})
+            await _ensure_node(["Instance"], tid, {"node_kind": "Instance", "table_name": t["table_name"], "pg_id": str(t["pg_id"])}, connection_id=connection_id)
 
         props = rel.get("properties") or {}
 
@@ -283,14 +283,14 @@ async def ingest_spatial_relationships(relations: List[Dict[str, Any]]) -> Dict[
         else:
             mapped_type = rtype
 
-        await _ensure_relationship(sid, tid, mapped_type, props)
+        await _ensure_relationship(sid, tid, mapped_type, props, connection_id=connection_id)
         made += 1
 
     return {"count": made}
 
 
 # LLM ingestion: generic triples
-async def ingest_llm_triples(triples: List[Dict[str, Any]]) -> Dict[str, Any]:
+async def ingest_llm_triples(triples: List[Dict[str, Any]], connection_id: Optional[str] = None) -> Dict[str, Any]:
     """Ingest LLM-produced triples.
 
     Triple format:
@@ -322,17 +322,17 @@ async def ingest_llm_triples(triples: List[Dict[str, Any]]) -> Dict[str, Any]:
         s_key = start.get("key") or {}
         s_props = start.get("properties") or {}
         s_id = _node_id_from_key(s_labels, s_key)
-        await _ensure_node(s_labels, s_id, {**s_key, **s_props, "node_kind": s_labels[0]})
+        await _ensure_node(s_labels, s_id, {**s_key, **s_props, "node_kind": s_labels[0]}, connection_id=connection_id)
 
         # End node
         e_labels = end.get("labels") or ["Concept"]
         e_key = end.get("key") or {}
         e_props = end.get("properties") or {}
         e_id = _node_id_from_key(e_labels, e_key)
-        await _ensure_node(e_labels, e_id, {**e_key, **e_props, "node_kind": e_labels[0]})
+        await _ensure_node(e_labels, e_id, {**e_key, **e_props, "node_kind": e_labels[0]}, connection_id=connection_id)
 
         # Relationship
-        await _ensure_relationship(s_id, e_id, rtype, props)
+        await _ensure_relationship(s_id, e_id, rtype, props, connection_id=connection_id)
         created += 1
 
     return {"count": created}
