@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 // Using local tabs and native selects to keep dependencies minimal
 import { Search, GitBranch, Activity, Database } from 'lucide-react';
 import GraphVisualization from '@/components/GraphVisualization';
+import AdvancedFilters, { FilterCondition } from '@/components/kg/AdvancedFilters';
 
 interface GraphStats {
   nodes: Record<string, number>;
@@ -67,6 +68,11 @@ export default function KgOverview() {
   const [activeTab, setActiveTab] = useState<TabKey>('search');
   const [relTypeFilter, setRelTypeFilter] = useState<string>('');
   const [nodePropFilter, setNodePropFilter] = useState<string>('');
+  const [nodeConditions, setNodeConditions] = useState<FilterCondition[]>([]);
+  const [relConditions, setRelConditions] = useState<FilterCondition[]>([]);
+  const [selectedRelTypes, setSelectedRelTypes] = useState<string[]>([]);
+  const [showEdgeLabels, setShowEdgeLabels] = useState(true);
+  const [hoverHighlight, setHoverHighlight] = useState(true);
 
   // Fetch graph statistics
   const statsQuery = useQuery<GraphStats>({
@@ -345,23 +351,61 @@ export default function KgOverview() {
                   Showing {subgraphData.meta.node_count} nodes and {subgraphData.meta.relationship_count} relationships
                 </div>
 
+                <div className="space-y-3">
+                  {/* Advanced filter builder */}
+                  <AdvancedFilters
+                    nodeConditions={nodeConditions}
+                    setNodeConditions={setNodeConditions}
+                    relConditions={relConditions}
+                    setRelConditions={setRelConditions}
+                    relTypes={Array.from(new Set((subgraphData?.relationships || []).map(r => r.type)))}
+                    selectedRelTypes={selectedRelTypes}
+                    setSelectedRelTypes={setSelectedRelTypes}
+                  />
+                  <div className="flex items-center gap-4 text-xs">
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={hoverHighlight} onChange={e => setHoverHighlight(e.target.checked)} /> Hover highlight</label>
+                    <label className="flex items-center gap-1"><input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)} /> Edge labels</label>
+                  </div>
+                </div>
+
                 {(() => {
-                  const filteredNodes = (subgraphData.nodes || []).filter(n => {
-                    if (!nodePropFilter) return true;
-                    try {
-                      return JSON.stringify(n).toLowerCase().includes(nodePropFilter.toLowerCase());
-                    } catch { return true; }
+                  const matchesNode = (n: any) => {
+                    if (!nodeConditions.length && !nodePropFilter) return true;
+                    const textMatch = !nodePropFilter || (() => { try { return JSON.stringify(n).toLowerCase().includes(nodePropFilter.toLowerCase()); } catch { return true; }})();
+                    const conds = nodeConditions.every((c) => {
+                      const val = n[c.key] ?? n.properties?.[c.key];
+                      const s = (val === undefined || val === null) ? '' : String(val);
+                      if (c.op === 'equals') return s === c.value;
+                      if (c.op === 'contains') return s.toLowerCase().includes((c.value || '').toLowerCase());
+                      const a = Number(s), b = Number(c.value);
+                      if (Number.isNaN(a) || Number.isNaN(b)) return false;
+                      return c.op === 'gt' ? a > b : a < b;
+                    });
+                    return textMatch && conds;
+                  };
+                  const nodeFiltered = (subgraphData.nodes || []).filter(matchesNode);
+                  const nodeIds = new Set(nodeFiltered.map(n => n.id));
+                  const relFiltered = (subgraphData.relationships || []).filter((r) => {
+                    const typeOk = !selectedRelTypes.length || selectedRelTypes.includes(r.type);
+                    const relCondsOk = relConditions.every((c) => {
+                      const v = (r as any)[c.key] ?? r[c.key] ?? r.properties?.[c.key];
+                      const s = (v === undefined || v === null) ? '' : String(v);
+                      if (c.op === 'equals') return s === c.value;
+                      if (c.op === 'contains') return s.toLowerCase().includes((c.value || '').toLowerCase());
+                      const a = Number(s), b = Number(c.value);
+                      if (Number.isNaN(a) || Number.isNaN(b)) return false;
+                      return c.op === 'gt' ? a > b : a < b;
+                    });
+                    return typeOk && relCondsOk && nodeIds.has(r.start_node_id) && nodeIds.has(r.end_node_id);
                   });
-                  const nodeIds = new Set(filteredNodes.map(n => n.id));
-                  const filteredRels = (subgraphData.relationships || []).filter(r => (
-                    (!relTypeFilter || r.type === relTypeFilter) && nodeIds.has(r.start_node_id) && nodeIds.has(r.end_node_id)
-                  ));
                   return (
                     <GraphVisualization 
-                      nodes={filteredNodes}
-                      relationships={filteredRels}
+                      nodes={nodeFiltered}
+                      relationships={relFiltered}
                       height="600px"
                       onNodeClick={(n) => setSelectedNode(n)}
+                      highlightNeighborsOnHover={hoverHighlight}
+                      showEdgeLabels={showEdgeLabels}
                     />
                   );
                 })()}
