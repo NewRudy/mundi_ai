@@ -65,6 +65,8 @@ export default function KgOverview() {
   const [graphDepth, setGraphDepth] = useState<number>(2);
   const [subgraphData, setSubgraphData] = useState<SubgraphResponse | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('search');
+  const [relTypeFilter, setRelTypeFilter] = useState<string>('');
+  const [nodePropFilter, setNodePropFilter] = useState<string>('');
 
   // Fetch graph statistics
   const statsQuery = useQuery<GraphStats>({
@@ -287,13 +289,54 @@ export default function KgOverview() {
                       <option value="2">2</option>
                       <option value="3">3</option>
                     </select>
+                    <label className="text-sm">Rel Type:</label>
+                    <select
+                      className="w-40 border rounded px-2 py-1 bg-background text-foreground"
+                      value={relTypeFilter}
+                      onChange={(e) => setRelTypeFilter(e.target.value)}
+                    >
+                      <option value="">All</option>
+                      {Array.from(new Set((subgraphData?.relationships || []).map(r => r.type))).map(t => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                    <label className="text-sm">Node filter:</label>
+                    <input
+                      className="w-56 border rounded px-2 py-1 bg-background text-foreground"
+                      placeholder="prop text contains..."
+                      value={nodePropFilter}
+                      onChange={(e) => setNodePropFilter(e.target.value)}
+                    />
                     {selectedNode && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => fetchSubgraph.mutate(selectedNode.id)}
-                      >
-                        Refresh
-                      </Button>
+                      <>
+                        <Button 
+                          size="sm" 
+                          onClick={() => fetchSubgraph.mutate(selectedNode.id)}
+                        >
+                          Refresh
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => {
+                          if (!subgraphData) return;
+                          const filteredNodes = (subgraphData.nodes || []).filter(n => {
+                            if (!nodePropFilter) return true;
+                            try {
+                              return JSON.stringify(n).toLowerCase().includes(nodePropFilter.toLowerCase());
+                            } catch { return true; }
+                          });
+                          const nodeIds = new Set(filteredNodes.map(n => n.id));
+                          const filteredRels = (subgraphData.relationships || []).filter(r => (
+                            (!relTypeFilter || r.type === relTypeFilter) && nodeIds.has(r.start_node_id) && nodeIds.has(r.end_node_id)
+                          ));
+                          const payload = { nodes: filteredNodes, relationships: filteredRels };
+                          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+                          const url = URL.createObjectURL(blob);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = 'subgraph.json';
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        }}>Export JSON</Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -302,11 +345,26 @@ export default function KgOverview() {
                   Showing {subgraphData.meta.node_count} nodes and {subgraphData.meta.relationship_count} relationships
                 </div>
 
-                <GraphVisualization 
-                  nodes={subgraphData.nodes}
-                  relationships={subgraphData.relationships}
-                  height="600px"
-                />
+                {(() => {
+                  const filteredNodes = (subgraphData.nodes || []).filter(n => {
+                    if (!nodePropFilter) return true;
+                    try {
+                      return JSON.stringify(n).toLowerCase().includes(nodePropFilter.toLowerCase());
+                    } catch { return true; }
+                  });
+                  const nodeIds = new Set(filteredNodes.map(n => n.id));
+                  const filteredRels = (subgraphData.relationships || []).filter(r => (
+                    (!relTypeFilter || r.type === relTypeFilter) && nodeIds.has(r.start_node_id) && nodeIds.has(r.end_node_id)
+                  ));
+                  return (
+                    <GraphVisualization 
+                      nodes={filteredNodes}
+                      relationships={filteredRels}
+                      height="600px"
+                      onNodeClick={(n) => setSelectedNode(n)}
+                    />
+                  );
+                })()}
               </div>
             </Card>
           )}

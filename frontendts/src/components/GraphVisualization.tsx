@@ -23,6 +23,7 @@ interface GraphVisualizationProps {
   relationships: GraphRelationship[];
   height?: string;
   onNodeClick?: (node: GraphNode) => void;
+  highlightNeighborsOnHover?: boolean;
 }
 
 interface NodePosition {
@@ -36,7 +37,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   nodes,
   relationships,
   height = '500px',
-  onNodeClick
+  onNodeClick,
+  highlightNeighborsOnHover = true,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -47,6 +49,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const nodePositions = useRef<Map<string, NodePosition>>(new Map());
   const animationFrameId = useRef<number>();
+  const neighborIndex = useRef<Map<string, Set<string>>>(new Map());
 
   // Node type colors
   const getNodeColor = (labels: string[]) => {
@@ -83,6 +86,20 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       });
     });
   }, [nodes]);
+
+  // Build neighbor index for hover highlighting
+  useEffect(() => {
+    const idx = new Map<string, Set<string>>();
+    relationships.forEach(rel => {
+      const a = rel.start_node_id;
+      const b = rel.end_node_id;
+      if (!idx.has(a)) idx.set(a, new Set());
+      if (!idx.has(b)) idx.set(b, new Set());
+      idx.get(a)!.add(b);
+      idx.get(b)!.add(a);
+    });
+    neighborIndex.current = idx;
+  }, [relationships]);
 
   // Force-directed layout simulation
   useEffect(() => {
@@ -185,14 +202,26 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     ctx.translate(pan.x, pan.y);
     ctx.scale(zoom, zoom);
 
-    // Draw relationships
-    ctx.strokeStyle = '#94a3b8';
-    ctx.lineWidth = 1;
+    // Draw relationships with hover highlighting
     relationships.forEach(rel => {
       const startPos = nodePositions.current.get(rel.start_node_id);
       const endPos = nodePositions.current.get(rel.end_node_id);
       if (!startPos || !endPos) return;
 
+      let isHighlighted = false;
+      if (highlightNeighborsOnHover && hoveredNode) {
+        if (rel.start_node_id === hoveredNode || rel.end_node_id === hoveredNode) {
+          isHighlighted = true;
+        } else {
+          const nb = neighborIndex.current.get(hoveredNode) || new Set<string>();
+          if (nb.has(rel.start_node_id) || nb.has(rel.end_node_id)) {
+            isHighlighted = true;
+          }
+        }
+      }
+
+      ctx.strokeStyle = isHighlighted ? '#1e293b' : '#94a3b8';
+      ctx.lineWidth = isHighlighted ? 2 : 1;
       ctx.beginPath();
       ctx.moveTo(startPos.x, startPos.y);
       ctx.lineTo(endPos.x, endPos.y);
@@ -201,7 +230,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       // Draw relationship type label
       const midX = (startPos.x + endPos.x) / 2;
       const midY = (startPos.y + endPos.y) / 2;
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = isHighlighted ? '#0f172a' : '#64748b';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(rel.type, midX, midY - 5);
@@ -373,6 +402,15 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         <Button size="icon" variant="secondary" onClick={handleReset}>
           <Maximize2 className="h-4 w-4" />
         </Button>
+        <Button size="sm" variant="secondary" onClick={() => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const url = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'graph.png';
+          a.click();
+        }}>PNG</Button>
       </div>
 
       {/* Legend */}
