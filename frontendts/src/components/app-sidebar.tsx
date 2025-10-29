@@ -142,6 +142,14 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Spatial Relations">
+                  <Link to={`/kg/spatial-relations`}>
+                    <GitBranch className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Spatial Relations</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

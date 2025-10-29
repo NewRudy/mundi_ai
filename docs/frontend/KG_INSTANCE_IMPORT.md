@@ -8,7 +8,7 @@
 
 ## 使用流程
 1. 选择 Project（自动列出你的项目）
-2. （可选）选择 PostgreSQL 连接，仅用于指示要写入的 Neo4j 连接 ID（后端支持 `connection_id`，默认写入主连接）
+2. （可选）选择 Neo4j 连接，用于指定目标 Neo4j（支持 `connection_id`，默认写入主连接）
 3. 在文本框粘贴实例数组 JSON，点击 Validate 验证结构
 4. 点击 Upsert Instances 执行导入
 

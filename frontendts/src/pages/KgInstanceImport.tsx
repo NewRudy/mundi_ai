@@ -5,12 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useProjects } from '@/contexts/ProjectsContext';
 
-interface ProjectSourceItem {
+interface Neo4jConnectionItem {
   connection_id: string;
-  table_count: number;
-  is_documented: boolean;
-  processed_tables_count?: number;
-  friendly_name?: string;
+  connection_name?: string;
   last_error_text?: string | null;
   last_error_timestamp?: string | null;
 }
@@ -34,23 +31,18 @@ export default function KgInstanceImport() {
     }
   }, [allProjects, projectId]);
 
-  const sourcesQuery = useQuery<{ items: ProjectSourceItem[] } | ProjectSourceItem[]>({
-    queryKey: ['project-sources', projectId],
+  const neo4jQuery = useQuery<Neo4jConnectionItem[]>({
+    queryKey: ['project-neo4j', projectId],
     queryFn: async () => {
-      if (!projectId) return { items: [] } as any;
-      const r = await fetch(`/api/projects/${projectId}/sources`);
-      if (!r.ok) throw new Error('Failed to fetch project sources');
+      if (!projectId) return [];
+      const r = await fetch(`/api/projects/${projectId}/neo4j-connections`);
+      if (!r.ok) throw new Error('Failed to fetch neo4j connections');
       return r.json();
     },
     enabled: !!projectId,
   });
 
-  const sources: ProjectSourceItem[] = useMemo(() => {
-    const data = sourcesQuery.data as any;
-    if (!data) return [];
-    // project_routes returns a list directly
-    return Array.isArray(data) ? data : (data.items || []);
-  }, [sourcesQuery.data]);
+  const neo4jConns: Neo4jConnectionItem[] = useMemo(() => neo4jQuery.data || [], [neo4jQuery.data]);
 
   const validate = () => {
     try {
@@ -124,7 +116,7 @@ export default function KgInstanceImport() {
           </div>
 
           <div>
-            <div className="text-sm font-medium mb-1">PostgreSQL Connection (optional)</div>
+            <div className="text-sm font-medium mb-1">Neo4j Connection (optional)</div>
             <select
               className="w-full border rounded px-2 py-2 bg-background text-foreground"
               value={selectedConn}
@@ -132,14 +124,14 @@ export default function KgInstanceImport() {
               disabled={!projectId}
             >
               <option value="">Default Neo4j</option>
-              {sources.map(s => (
+              {neo4jConns.map(s => (
                 <option key={s.connection_id} value={s.connection_id}>
-                  {(s.friendly_name || s.connection_id) + (s.table_count ? ` · ${s.table_count} tables` : '')}
+                  {s.connection_name || s.connection_id}
                 </option>
               ))}
             </select>
-            {sourcesQuery.isLoading && <div className="text-xs text-muted-foreground mt-1">Loading connections…</div>}
-            {sourcesQuery.error && <div className="text-xs text-red-600 mt-1">Failed to load connections</div>}
+            {neo4jQuery.isLoading && <div className="text-xs text-muted-foreground mt-1">Loading connections…</div>}
+            {neo4jQuery.error && <div className="text-xs text-red-600 mt-1">Failed to load connections</div>}
           </div>
 
           <div>
