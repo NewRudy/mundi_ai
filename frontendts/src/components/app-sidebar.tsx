@@ -1,5 +1,5 @@
 import { AccountMenu } from '@mundi/ee';
-import { House, PanelRightClose, PanelRightOpen, GitBranch } from 'lucide-react';
+import { House, PanelRightClose, PanelRightOpen, GitBranch, Database } from 'lucide-react';
 import { Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import ADarkSvg from '@/assets/A-dark.svg';
@@ -123,6 +123,14 @@ export function AppSidebar() {
                   <Link to={`/kg/new`}>
                     <GitBranch className="w-4 h-4 mr-2" />
                     <span className="text-sm">Builder</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Schema Manager">
+                  <Link to={`/kg/schema`}>
+                    <Database className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Schema</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

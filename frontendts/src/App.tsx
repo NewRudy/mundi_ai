@@ -18,6 +18,7 @@ import PostGISDocumentation from './pages/PostGISDocumentation';
 import './App.css';
 import KgNew from './pages/KgNew';
 import KgOverview from './pages/KgOverview';
+import KgSchemaManager from './pages/KgSchemaManager';
 import { Routes as EERoutes, OptionalAuth, Provider, RequireAuth } from '@mundi/ee';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
@@ -95,6 +96,14 @@ function AppContent() {
               element={
                 <RequireAuth>
                   <KgOverview />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/kg/schema"
+              element={
+                <RequireAuth>
+                  <KgSchemaManager />
                 </RequireAuth>
               }
             />
