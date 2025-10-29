@@ -11,8 +11,9 @@
 1. 选择 Project（可选选择 Neo4j 连接）
 2. 按名称和标签搜索节点，点击某个节点作为 Root
 3. 选择 Depth（1-3）和关系类型过滤
-4. 查看当前子图内的关系表格（Type/Start/End）
-5. 可对某条关系执行 Delete（删除）
+4. 新增节点属性过滤器（可多条：key + operator + value）
+5. 预览子图可视化（支持悬停邻接高亮、显示/隐藏边标签、导出 CSV）
+6. 查看当前子图内的关系表格（Type/Start/End），支持删除关系
 
 后端接口：
 - GET /api/kg/graph/stats

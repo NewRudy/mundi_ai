@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useProjects } from '@/contexts/ProjectsContext';
+import GraphVisualization from '@/components/GraphVisualization';
 
 interface GraphNode {
   id: string;
@@ -54,6 +55,12 @@ export default function KgSpatialRelations() {
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [depth, setDepth] = useState(2);
   const [typeFilter, setTypeFilter] = useState('');
+
+  type Operator = 'contains' | 'equals';
+  interface FilterCondition { key: string; op: Operator; value: string }
+  const [conditions, setConditions] = useState<FilterCondition[]>([]);
+  const [showEdgeLabels, setShowEdgeLabels] = useState(true);
+  const [hoverHighlight, setHoverHighlight] = useState(true);
 
   // Import state
   const [jsonText, setJsonText] = useState('');
@@ -139,10 +146,26 @@ export default function KgSpatialRelations() {
     return Array.from(set).sort();
   }, [subgraphMutation.data]);
 
+  const matchesNode = useCallback((n: GraphNode) => {
+    if (!conditions.length) return true;
+    return conditions.every(c => {
+      const val = (n as any)[c.key] ?? (n as any).properties?.[c.key];
+      const s = (val === undefined || val === null) ? '' : String(val);
+      if (c.op === 'equals') return s === c.value;
+      return s.toLowerCase().includes((c.value || '').toLowerCase());
+    });
+  }, [conditions]);
+
+  const filteredNodes = useMemo(() => {
+    const all = subgraphMutation.data?.nodes || [];
+    return all.filter(matchesNode);
+  }, [subgraphMutation.data, matchesNode]);
+
   const filteredRels = useMemo(() => {
     const all = subgraphMutation.data?.relationships || [];
-    return typeFilter ? all.filter(r => r.type === typeFilter) : all;
-  }, [subgraphMutation.data, typeFilter]);
+    const allowedIds = new Set(filteredNodes.map(n => n.id));
+    return (typeFilter ? all.filter(r => r.type === typeFilter) : all).filter(r => allowedIds.has(r.start_node_id) && allowedIds.has(r.end_node_id));
+  }, [subgraphMutation.data, typeFilter, filteredNodes]);
 
   const onSelectNode = useCallback((n: GraphNode) => {
     setSelectedNode(n);
@@ -289,11 +312,27 @@ export default function KgSpatialRelations() {
                     <option value="">All</option>
                     {relTypes.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
+                  <div className="text-sm">Node filters</div>
+                  <div className="flex flex-col gap-1">
+                    {conditions.map((c, idx) => (
+                      <div key={idx} className="flex gap-1 items-center">
+                        <input className="w-28 border rounded px-1 py-0.5" placeholder="key" value={c.key} onChange={e => setConditions(cs => cs.map((cc,i) => i===idx?{...cc,key:e.target.value}:cc))} />
+                        <select className="border rounded px-1 py-0.5" value={c.op} onChange={e => setConditions(cs => cs.map((cc,i) => i===idx?{...cc,op:(e.target.value as Operator)}:cc))}>
+                          <option value="contains">contains</option>
+                          <option value="equals">equals</option>
+                        </select>
+                        <input className="w-32 border rounded px-1 py-0.5" placeholder="value" value={c.value} onChange={e => setConditions(cs => cs.map((cc,i) => i===idx?{...cc,value:e.target.value}:cc))} />
+                        <Button size="sm" variant="outline" onClick={() => setConditions(cs => cs.filter((_,i)=>i!==idx))}>X</Button>
+                      </div>
+                    ))}
+                    <Button size="sm" variant="outline" onClick={() => setConditions(cs => [...cs, {key:'', op:'contains', value:''}])}>Add filter</Button>
+                  </div>
                 </div>
               </div>
 
-              <div className="overflow-auto max-h-[50vh] border rounded">
-                <table className="w-full text-sm">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="md:w-1/2 w-full overflow-auto max-h-[50vh] border rounded">
+                  <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-muted">
                       <th className="p-2 text-left">Type</th>
@@ -327,7 +366,34 @@ export default function KgSpatialRelations() {
                       <tr><td className="p-2 text-sm text-muted-foreground" colSpan={4}>No relationships in current subgraph</td></tr>
                     )}
                   </tbody>
-                </table>
+                  </table>
+                </div>
+                <div className="md:w-1/2 w-full">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-medium">Subgraph Preview</div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={hoverHighlight} onChange={e => setHoverHighlight(e.target.checked)} /> Hover highlight</label>
+                      <label className="flex items-center gap-1"><input type="checkbox" checked={showEdgeLabels} onChange={e => setShowEdgeLabels(e.target.checked)} /> Edge labels</label>
+                      <Button size="sm" variant="outline" onClick={() => {
+                        // Export CSV edges
+                        const rows = [['id','type','start','end'], ...filteredRels.map(r => [r.id, r.type, r.start_node_id, r.end_node_id])];
+                        const csv = rows.map(r => r.map(x => '"' + String(x).replace(/"/g,'""') + '"').join(',')).join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = 'relations.csv'; a.click(); URL.revokeObjectURL(url);
+                      }}>Export CSV</Button>
+                    </div>
+                  </div>
+                  <GraphVisualization
+                    nodes={filteredNodes}
+                    relationships={filteredRels}
+                    height="400px"
+                    highlightNeighborsOnHover={hoverHighlight}
+                    showEdgeLabels={showEdgeLabels}
+                    onNodeClick={(n) => setSelectedNode(n)}
+                  />
+                </div>
               </div>
             </div>
           )}

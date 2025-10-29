@@ -24,6 +24,7 @@ interface GraphVisualizationProps {
   height?: string;
   onNodeClick?: (node: GraphNode) => void;
   highlightNeighborsOnHover?: boolean;
+  showEdgeLabels?: boolean;
 }
 
 interface NodePosition {
@@ -39,6 +40,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   height = '500px',
   onNodeClick,
   highlightNeighborsOnHover = true,
+  showEdgeLabels = true,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -228,12 +230,14 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       ctx.stroke();
 
       // Draw relationship type label
-      const midX = (startPos.x + endPos.x) / 2;
-      const midY = (startPos.y + endPos.y) / 2;
-      ctx.fillStyle = isHighlighted ? '#0f172a' : '#64748b';
-      ctx.font = '10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(rel.type, midX, midY - 5);
+      if (showEdgeLabels) {
+        const midX = (startPos.x + endPos.x) / 2;
+        const midY = (startPos.y + endPos.y) / 2;
+        ctx.fillStyle = isHighlighted ? '#0f172a' : '#64748b';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(rel.type, midX, midY - 5);
+      }
     });
 
     // Draw nodes
