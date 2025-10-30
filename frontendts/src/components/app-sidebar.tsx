@@ -112,7 +112,7 @@ export function AppSidebar() {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="KG Overview">
-                  <Link to={`/kg/overview`}>
+                  <Link to={allProjects[0]?.id ? `/project/${allProjects[0].id}/kg/overview` : `/kg/overview`}>
                     <GitBranch className="w-4 h-4 mr-2" />
                     <span className="text-sm">Overview</span>
                   </Link>
@@ -147,6 +147,14 @@ export function AppSidebar() {
                   <Link to={`/kg/spatial-relations`}>
                     <GitBranch className="w-4 h-4 mr-2" />
                     <span className="text-sm">Spatial Relations</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Data Sources">
+                  <Link to={`/project/${allProjects[0]?.id}/connections`}>
+                    <Database className="w-4 h-4 mr-2" />
+                    <span className="text-sm">Data Sources</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

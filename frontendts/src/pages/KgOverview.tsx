@@ -1,5 +1,6 @@
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useState, useCallback } from 'react';
+import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -59,7 +60,14 @@ interface SubgraphResponse {
 
 type TabKey = 'search' | 'details' | 'stats';
 
+interface Neo4jConn {
+  connection_id: string;
+  connection_name?: string;
+}
+
 export default function KgOverview() {
+  const { projectId } = useParams<{ projectId?: string }>();
+  const [connectionId, setConnectionId] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLabels, setSelectedLabels] = useState<string>('');
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -74,31 +82,47 @@ export default function KgOverview() {
   const [showEdgeLabels, setShowEdgeLabels] = useState(true);
   const [hoverHighlight, setHoverHighlight] = useState(true);
 
+  // Fetch available connections
+  const connectionsQuery = useQuery<Neo4jConn[]>({
+    queryKey: ['neo4j-conns', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const r = await fetch(`/api/projects/${projectId}/neo4j-connections`);
+      if (!r.ok) throw new Error('Failed to list connections');
+      return r.json();
+    },
+    enabled: !!projectId,
+  });
+
   // Fetch graph statistics
   const statsQuery = useQuery<GraphStats>({
-    queryKey: ['kg-stats'],
+    queryKey: ['kg-stats', connectionId],
     queryFn: async () => {
-      const r = await fetch('/api/kg/graph/stats');
+      const params = new URLSearchParams();
+      if (connectionId) params.append('connection_id', connectionId);
+      const r = await fetch(`/api/kg/graph/stats?${params}`);
       if (!r.ok) throw new Error('Failed to fetch stats');
       return r.json();
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    enabled: !!connectionId,
+    refetchInterval: 30000,
   });
 
   // Search nodes
   const searchQuery = useQuery<SearchResponse>({
-    queryKey: ['kg-search', searchTerm, selectedLabels],
+    queryKey: ['kg-search', searchTerm, selectedLabels, connectionId],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchTerm) params.append('name', searchTerm);
       if (selectedLabels) params.append('labels', selectedLabels);
+      if (connectionId) params.append('connection_id', connectionId);
       params.append('limit', '50');
       
       const r = await fetch(`/api/kg/graph/search?${params}`);
       if (!r.ok) throw new Error('Failed to search nodes');
       return r.json();
     },
-    enabled: searchTerm.length > 0 || selectedLabels.length > 0,
+    enabled: (searchTerm.length > 0 || selectedLabels.length > 0) && !!connectionId,
   });
 
   // Fetch subgraph
@@ -109,6 +133,7 @@ export default function KgOverview() {
         depth: graphDepth.toString(),
         limit: '500',
       });
+      if (connectionId) params.append('connection_id', connectionId);
       
       const r = await fetch(`/api/kg/graph/subgraph?${params}`);
       if (!r.ok) throw new Error('Failed to fetch subgraph');
@@ -135,12 +160,27 @@ export default function KgOverview() {
           <GitBranch className="h-6 w-6" />
           Knowledge Graph Overview
         </h1>
-        <Button 
-          variant="outline"
-          onClick={() => statsQuery.refetch()}
-        >
-          Refresh Stats
-        </Button>
+        <div className="flex items-center gap-2">
+          <select
+            className="w-64 border rounded px-3 py-2 bg-background text-foreground"
+            value={connectionId}
+            onChange={(e) => setConnectionId(e.target.value)}
+          >
+            <option value="">Select Data Source</option>
+            {(connectionsQuery.data || []).map((c) => (
+              <option key={c.connection_id} value={c.connection_id}>
+                {c.connection_name || c.connection_id}
+              </option>
+            ))}
+          </select>
+          <Button 
+            variant="outline"
+            onClick={() => statsQuery.refetch()}
+            disabled={!connectionId}
+          >
+            Refresh Stats
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}

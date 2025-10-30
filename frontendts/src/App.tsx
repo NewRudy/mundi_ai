@@ -21,6 +21,7 @@ import KgOverview from './pages/KgOverview';
 import KgSchemaManager from './pages/KgSchemaManager';
 import KgInstanceImport from './pages/KgInstanceImport';
 import KgSpatialRelations from './pages/KgSpatialRelations';
+import KgConnections from './pages/KgConnections';
 import { Routes as EERoutes, OptionalAuth, Provider, RequireAuth } from '@mundi/ee';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
@@ -102,6 +103,14 @@ function AppContent() {
               }
             />
             <Route
+              path="/project/:projectId/kg/overview"
+              element={
+                <RequireAuth>
+                  <KgOverview />
+                </RequireAuth>
+              }
+            />
+            <Route
               path="/kg/schema"
               element={
                 <RequireAuth>
@@ -122,6 +131,14 @@ function AppContent() {
               element={
                 <RequireAuth>
                   <KgSpatialRelations />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/project/:projectId/connections"
+              element={
+                <RequireAuth>
+                  <KgConnections />
                 </RequireAuth>
               }
             />
