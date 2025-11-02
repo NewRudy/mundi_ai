@@ -31,6 +31,7 @@ import { ConnectGoogleSheets } from '@/components/ConnectGoogleSheets';
 import { ConnectWFS } from '@/components/ConnectWFS';
 import EditableTitle from '@/components/EditableTitle';
 import { LayerListItem } from '@/components/LayerListItem';
+import LayerStyleEditor from '@/components/LayerStyleEditor';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -123,6 +124,7 @@ const LayerList: React.FC<LayerListProps> = ({
   const [showGoogleSheetsDialog, setShowGoogleSheetsDialog] = useState(false);
   const [showESRIDialog, setShowESRIDialog] = useState(false);
   const [portError, setPortError] = useState<string | null>(null);
+  const [editingStyleLayer, setEditingStyleLayer] = useState<MapLayer | null>(null);
 
   // Fetch PostGIS sources (database connections) for this project
   const { data: projectSources } = useQuery({
@@ -381,6 +383,18 @@ const LayerList: React.FC<LayerListProps> = ({
                       renameMutation.mutate({ layerId, newName });
                     }}
                     dropdownActions={{
+                      'edit-style': {
+                        label: 'Edit style',
+                        disabled: layerDetails.type === 'raster',
+                        action: (layerId) => {
+                          const layer = currentMapData.layers?.find((l) => l.id === layerId);
+                          if (layer && layer.type !== 'raster') {
+                            setEditingStyleLayer(layer);
+                          } else if (layer?.type === 'raster') {
+                            toast.info('Raster styling is not supported yet.');
+                          }
+                        },
+                      },
                       'zoom-to-layer': {
                         label: 'Zoom to layer',
                         disabled: false,
@@ -1060,6 +1074,22 @@ const LayerList: React.FC<LayerListProps> = ({
           onSuccess={updateMapData}
         />
       </CardFooter>
+
+      {editingStyleLayer && (
+        <div className="fixed right-4 top-20 z-[1000]">
+          <LayerStyleEditor
+            layer={editingStyleLayer}
+            mapId={currentMapData.map_id}
+            onClose={() => setEditingStyleLayer(null)}
+            onUpdate={() => {
+              // Refresh style.json and map/layer data
+              queryClient.invalidateQueries({ queryKey: ['mapStyle', currentMapData.map_id], exact: false });
+              updateMapData();
+              setEditingStyleLayer(null);
+            }}
+          />
+        </div>
+      )}
     </Card>
   );
 };
