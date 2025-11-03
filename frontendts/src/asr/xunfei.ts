@@ -110,15 +110,17 @@ export class XunfeiIatEngine {
 
   private sendFrame(status: 0 | 1 | 2, pcm: Int16Array) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-    const payload: any = { status };
+    const payload: any = {};
     if (status === 0) {
       payload.common = { app_id: this.opts.appId };
       payload.business = this.opts.business;
-      payload.data = { format: 'audio/L16;rate=16000', encoding: 'raw', audio: '' };
     }
-    if (status !== 0) {
-      payload.data = { format: 'audio/L16;rate=16000', encoding: 'raw', audio: this.base64FromInt16(pcm) };
-    }
+    payload.data = {
+      status,
+      format: 'audio/L16;rate=16000',
+      encoding: 'raw',
+      audio: pcm && pcm.length > 0 ? this.base64FromInt16(pcm) : '',
+    };
     this.ws.send(JSON.stringify(payload));
   }
 

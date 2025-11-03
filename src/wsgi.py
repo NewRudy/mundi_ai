@@ -129,6 +129,8 @@ app.include_router(
 
 
 app.mount("/assets", StaticFiles(directory="frontendts/dist/assets"), name="spa-assets")
+# Serve AudioWorklet modules and other public root files (from frontendts/public)
+app.mount("/worklets", StaticFiles(directory="frontendts/dist/worklets"), name="worklets")
 
 
 @app.get("/favicon-light.svg")

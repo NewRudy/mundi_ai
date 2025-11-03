@@ -27,7 +27,28 @@ export function MicButton({ onData, onStateChange }: MicButtonProps) {
 
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 48000 });
       ctxRef.current = ctx;
-      await ctx.audioWorklet.addModule('/worklets/resampler-16k.js');
+
+      // Robustly resolve worklet URL in both dev (Vite) and prod (FastAPI static)
+      const base = (import.meta as any).env?.BASE_URL || '/';
+      const norm = (s: string) => s.replace(/\/+/g, '/');
+      const candidates = [
+        norm(`${base}/worklets/resampler-16k.js`),
+        '/worklets/resampler-16k.js',
+      ];
+      let loaded = false;
+      let lastErr: any = null;
+      for (const url of candidates) {
+        try {
+          await ctx.audioWorklet.addModule(url);
+          loaded = true;
+          break;
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      if (!loaded) {
+        throw lastErr || new Error("Failed to load AudioWorklet module");
+      }
 
       const source = ctx.createMediaStreamSource(stream);
       const node = new AudioWorkletNode(ctx, 'resampler-16k');
