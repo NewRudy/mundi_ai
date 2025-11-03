@@ -39,6 +39,8 @@ import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
 import VersionVisualization from '@/components/VersionVisualization';
+import { MicButton, type MicState } from '@/components/MicButton';
+import { XunfeiIatEngine } from '@/asr/xunfei';
 import type { ErrorEntry, UploadingFile } from '../lib/frontend-types';
 import type {
   Conversation,
@@ -973,6 +975,38 @@ export default function MapLibreMap({
   const [inputValue, setInputValue] = useState('');
   const readyStateRef = useRef<number>(readyState);
 
+  // ASR: Xunfei engine (frontend-only)
+  const xfEngineRef = useRef<XunfeiIatEngine | null>(null);
+  const baseInputRef = useRef<string>('');
+
+  const ensureXfEngine = () => {
+    if (!xfEngineRef.current) {
+      const appId = import.meta.env.VITE_XFYUN_APPID as string;
+      const apiKey = import.meta.env.VITE_XFYUN_APIKEY as string;
+      const apiSecret = import.meta.env.VITE_XFYUN_APISECRET as string;
+      xfEngineRef.current = new XunfeiIatEngine({ appId, apiKey, apiSecret });
+    }
+    return xfEngineRef.current!;
+  };
+
+  const onMicData = (frame: Int16Array) => {
+    ensureXfEngine().pushAudio(frame);
+  };
+
+  const onMicStateChange = async (s: MicState) => {
+    if (s === 'listening') {
+      baseInputRef.current = inputValue ? inputValue.replace(/\s*$/, ' ') : '';
+      await ensureXfEngine().start({
+        onPartial: (t) => setInputValue(baseInputRef.current + t),
+        onFinal: (t) => setInputValue(baseInputRef.current + t),
+        onError: (e) => console.error(e),
+      });
+    }
+    if (s === 'idle') {
+      await ensureXfEngine().stop();
+    }
+  };
+
   useEffect(() => {
     readyStateRef.current = readyState;
   }, [readyState]);
@@ -1396,6 +1430,7 @@ export default function MapLibreMap({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
           />
+          <MicButton onData={onMicData} onStateChange={onMicStateChange} />
           {selectedFeature && (
             <Tooltip>
               <TooltipTrigger asChild>
