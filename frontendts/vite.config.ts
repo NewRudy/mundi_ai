@@ -22,6 +22,7 @@ export default defineConfig(({ mode }) => ({
     sourcemap: mode === 'development',
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      external: ['@deck.gl/widgets'],
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],

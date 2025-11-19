@@ -15,5 +15,6 @@ export { default as HydroSceneView } from './HydroSceneView';
 export { default as MultiScreenController } from './MultiScreenController';
 
 // 状态管理
-export { useSceneStore, SCENE_CONFIGS, type SceneType } from '../store/useSceneStore';
-export { useSmartSceneSwitch, useSceneData } from '../store/useSceneStore';
+export { useSceneStore, SCENE_CONFIGS, type SceneType } from '@/store/useSceneStore';
+export { useSmartSceneSwitch, useSceneData } from '@/store/useSceneStore';
+export type { SceneState, SceneConfig, SceneActions } from '@/store/useSceneStore';

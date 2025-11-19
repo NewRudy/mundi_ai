@@ -15,6 +15,12 @@ import type { ErrorEntry, UploadingFile } from '../lib/frontend-types';
 import type { Conversation, EphemeralAction, MapProject, MapTreeResponse, PostgresConnectionDetails } from '../lib/types';
 import { usePersistedState } from '../lib/usePersistedState';
 
+// 新增：统一视图管理
+import { UnifiedViewProvider, useUnifiedView, type UnifiedLayer } from '@/contexts/UnifiedViewContext';
+import { ViewModeToggle } from '@/components/ViewModeToggle';
+import { HydroSceneView } from '@/components/hydro-components';
+import { useSceneStore, type SceneType } from '@/store/useSceneStore';
+
 const DROPZONE_ACCEPT: Accept = {
   'application/geo+json': ['.geojson', '.json'],
   'application/vnd.google-earth.kml+xml': ['.kml'],
@@ -30,9 +36,11 @@ const DROPZONE_ACCEPT: Accept = {
   'text/csv': ['.csv'],
 };
 
-export default function ProjectView() {
+// 统一的ProjectView内容组件
+function ProjectViewContent() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { viewMode, hydroScene, setViewMode, sync2DTo3D, sync3DTo2D } = useUnifiedView();
 
   const { projectId, versionIdParam } = useParams();
 
@@ -510,38 +518,134 @@ export default function ProjectView() {
   }
 
   return (
-    <div {...getRootProps()} className={`flex grow ${isDragActive ? 'file-drag-active' : ''}`}>
-      {/* Dropzone */}
-      <input {...getInputProps()} />
+    <>
+      {/* 2D地图模式 */}
+      {viewMode === '2d' && (
+        <MapLibreMap
+          mapId={versionId}
+          height="100%"
+          project={project}
+          mapData={mapData}
+          mapTree={mapTree || null}
+          conversationId={effectiveConversationId}
+          conversations={conversations || []}
+          conversationsEnabled={conversationsEnabled}
+          setConversationId={setConversationId}
+          readyState={readyState}
+          openDropzone={open}
+          uploadingFiles={uploadingFiles}
+          hiddenLayerIDs={hiddenLayerIDs}
+          toggleLayerVisibility={toggleLayerVisibility}
+          mapRef={mapRef}
+          activeActions={activeActions}
+          setActiveActions={setActiveActions}
+          zoomHistory={zoomHistory}
+          zoomHistoryIndex={zoomHistoryIndex}
+          setZoomHistoryIndex={setZoomHistoryIndex}
+          addError={addError}
+          dismissError={dismissError}
+          errors={errors}
+          invalidateProjectData={invalidateProjectData}
+          invalidateMapData={invalidateMapData}
+        />
+      )}
 
-      {/* Interactive Map Section */}
-      <MapLibreMap
-        mapId={versionId}
-        height="100%"
-        project={project}
-        mapData={mapData}
-        mapTree={mapTree || null}
-        conversationId={effectiveConversationId}
-        conversations={conversations || []}
-        conversationsEnabled={conversationsEnabled}
-        setConversationId={setConversationId}
-        readyState={readyState}
-        openDropzone={open}
-        uploadingFiles={uploadingFiles}
-        hiddenLayerIDs={hiddenLayerIDs}
-        toggleLayerVisibility={toggleLayerVisibility}
-        mapRef={mapRef}
-        activeActions={activeActions}
-        setActiveActions={setActiveActions}
-        zoomHistory={zoomHistory}
-        zoomHistoryIndex={zoomHistoryIndex}
-        setZoomHistoryIndex={setZoomHistoryIndex}
-        addError={addError}
-        dismissError={dismissError}
-        errors={errors}
-        invalidateProjectData={invalidateProjectData}
-        invalidateMapData={invalidateMapData}
-      />
-    </div>
+      {/* 3D场景模式 */}
+      {viewMode === '3d' && (
+        <HydroSceneView
+          mapId={versionId}
+          project={project}
+          mapData={mapData}
+          mapTree={mapTree || null}
+          conversationId={effectiveConversationId}
+          conversations={conversations || []}
+          conversationsEnabled={conversationsEnabled}
+          setConversationId={setConversationId}
+          readyState={readyState}
+          openDropzone={open}
+          uploadingFiles={uploadingFiles}
+          hiddenLayerIDs={hiddenLayerIDs}
+          toggleLayerVisibility={toggleLayerVisibility}
+          activeActions={activeActions}
+          setActiveActions={setActiveActions}
+          addError={addError}
+          dismissError={dismissError}
+          errors={errors}
+          invalidateProjectData={invalidateProjectData}
+          invalidateMapData={invalidateMapData}
+        />
+      )}
+
+      {/* 分屏模式 */}
+      {viewMode === 'split' && (
+        <div className="flex w-full h-full">
+          {/* 左侧2D地图 */}
+          <div className="w-1/2 h-full border-r border-gray-300">
+            <MapLibreMap
+              mapId={versionId}
+              height="100%"
+              project={project}
+              mapData={mapData}
+              mapTree={mapTree || null}
+              conversationId={effectiveConversationId}
+              conversations={conversations || []}
+              conversationsEnabled={conversationsEnabled}
+              setConversationId={setConversationId}
+              readyState={readyState}
+              openDropzone={open}
+              uploadingFiles={uploadingFiles}
+              hiddenLayerIDs={hiddenLayerIDs}
+              toggleLayerVisibility={toggleLayerVisibility}
+              mapRef={mapRef}
+              activeActions={activeActions}
+              setActiveActions={setActiveActions}
+              zoomHistory={zoomHistory}
+              zoomHistoryIndex={zoomHistoryIndex}
+              setZoomHistoryIndex={setZoomHistoryIndex}
+              addError={addError}
+              dismissError={dismissError}
+              errors={errors}
+              invalidateProjectData={invalidateProjectData}
+              invalidateMapData={invalidateMapData}
+            />
+          </div>
+
+          {/* 右侧3D场景 */}
+          <div className="w-1/2 h-full">
+            <HydroSceneView
+              mapId={versionId}
+              project={project}
+              mapData={mapData}
+              mapTree={mapTree || null}
+              conversationId={effectiveConversationId}
+              conversations={conversations || []}
+              conversationsEnabled={conversationsEnabled}
+              setConversationId={setConversationId}
+              readyState={readyState}
+              openDropzone={open}
+              uploadingFiles={uploadingFiles}
+              hiddenLayerIDs={hiddenLayerIDs}
+              toggleLayerVisibility={toggleLayerVisibility}
+              activeActions={activeActions}
+              setActiveActions={setActiveActions}
+              addError={addError}
+              dismissError={dismissError}
+              errors={errors}
+              invalidateProjectData={invalidateProjectData}
+              invalidateMapData={invalidateMapData}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// 主要的ProjectView组件 - 提供统一视图上下文
+export default function ProjectView() {
+  return (
+    <UnifiedViewProvider>
+      <ProjectViewContent />
+    </UnifiedViewProvider>
   );
 }

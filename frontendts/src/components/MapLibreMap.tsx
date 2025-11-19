@@ -41,6 +41,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } 
 import VersionVisualization from '@/components/VersionVisualization';
 import { MicButton, type MicState } from '@/components/MicButton';
 import { XunfeiIatEngine } from '@/asr/xunfei';
+import { useViewModeToggle } from '@/components/ViewModeToggle';
 import type { ErrorEntry, UploadingFile } from '../lib/frontend-types';
 import type {
   Conversation,
@@ -277,6 +278,9 @@ export default function MapLibreMap({
     },
   });
   const demoConfig = demoConfigData ?? { available: false, description: '' };
+
+  // 初始化ViewModeToggle控件
+  useViewModeToggle(localMapRef.current);
 
   const pointCloudLayers = useMemo(() => {
     const filtered = mapData?.layers?.filter((layer) => layer.type === 'point_cloud') ?? EMPTY_POINT_CLOUD_LAYERS;

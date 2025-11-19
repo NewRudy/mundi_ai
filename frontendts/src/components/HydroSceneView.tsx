@@ -32,6 +32,8 @@ interface HydroSceneViewProps {
   projectId: string;
   className?: string;
   onSceneChange?: (scene: SceneType) => void;
+  // 3D场景数据
+  hydroScene?: any;
 }
 
 // 模拟数据生成器
@@ -145,23 +147,49 @@ const generateMockData = (sceneType: SceneType) => {
 const HydroSceneView: React.FC<HydroSceneViewProps> = ({
   projectId,
   className,
-  onSceneChange
+  onSceneChange,
+  hydroScene
 }) => {
-  const { currentScene, currentConfig } = useSceneStore();
+  // 使用传入的3D场景数据或使用默认值
+  const currentScene = hydroScene?.currentScene || 'normal';
   const [activeTab, setActiveTab] = useState<'2d' | '3d' | 'charts' | 'control'>('2d');
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [currentTimeIndex, setCurrentTimeIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(hydroScene?.animationEnabled || false);
+  const [currentTimeIndex, setCurrentTimeIndex] = useState(hydroScene?.currentTimeIndex || 0);
   const [showMultiScreen, setShowMultiScreen] = useState(false);
-  const [viewport, setViewport] = useState({
-    longitude: 111.0,
-    latitude: 30.8,
-    zoom: 8,
-    pitch: 0,
-    bearing: 0
-  });
+  const [viewport, setViewport] = useState<
+    { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number }
+  >(
+    hydroScene?.viewport || {
+      longitude: 111.0,
+      latitude: 30.8,
+      zoom: 8,
+      pitch: 0,
+      bearing: 0
+    }
+  );
 
   // 根据当前场景生成数据
-  const sceneData = generateMockData(currentScene);
+  const sceneData = generateMockData(currentScene as SceneType);
+
+  // 获取场景配置
+  const getSceneConfig = useCallback((scene: SceneType) => {
+    switch (scene) {
+      case 'normal':
+        return { name: '普通模式', defaultView: '2d', color: '#6b7280' };
+      case 'inspection':
+        return { name: '智能巡检', defaultView: '2d', color: '#10b981' };
+      case 'emergency':
+        return { name: '应急响应', defaultView: '3d', color: '#ef4444' };
+      case 'dispatch':
+        return { name: '调度决策', defaultView: 'charts', color: '#f59e0b' };
+      case 'analysis':
+        return { name: '数据分析', defaultView: 'charts', color: '#8b5cf6' };
+      default:
+        return { name: '普通模式', defaultView: '2d', color: '#6b7280' };
+    }
+  }, []);
+
+  const currentConfig = getSceneConfig(currentScene as SceneType);
 
   // 处理场景变化
   const handleSceneChange = useCallback((scene: SceneType, context?: any) => {
@@ -169,11 +197,11 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
     onSceneChange?.(scene);
 
     // 根据场景类型自动选择最佳视图
-    const config = useSceneStore.getState().scenes[scene];
+    const config = getSceneConfig(scene);
     if (config.defaultView) {
       setActiveTab(config.defaultView as any);
     }
-  }, [onSceneChange]);
+  }, [onSceneChange, getSceneConfig]);
 
   // 处理时间轴变化
   const handleTimeChange = useCallback((timeIndex: number) => {
