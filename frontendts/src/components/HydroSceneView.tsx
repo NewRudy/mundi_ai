@@ -3,22 +3,17 @@
  * 集成所有3D可视化、场景管理和多屏控制功能
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import {
-  Globe,
-  Map,
-  BarChart3,
-  Settings,
   Play,
   Pause,
   RotateCcw,
   Download,
   Share2,
-  Maximize2
+  Maximize2,
+  Settings
 } from 'lucide-react';
 
 // 导入所有组件
@@ -27,12 +22,39 @@ import SceneController from './SceneController';
 import Scene3DViewer from './Scene3DViewer';
 import MultiScreenController from './MultiScreenController';
 import { useSceneStore, SceneType } from '../store/useSceneStore';
+import LayerList from '@/components/LayerList';
+import { MicButton } from '@/components/MicButton';
+import { BasemapControl } from './BasemapControl';
+import { useViewModeToggle } from '@/components/ViewModeToggle';
+import { XunfeiIatEngine } from '@/asr/xunfei';
+
+// Types
+import type { MapProject, MapData, MapTreeResponse, Conversation, EphemeralAction, ErrorEntry, UploadingFile } from '../lib/types';
+import { ReadyState } from 'react-use-websocket';
 
 interface HydroSceneViewProps {
-  projectId: string;
+  mapId: string;
+  project: MapProject;
+  mapData?: MapData | null;
+  mapTree: MapTreeResponse | null;
+  conversationId: number | null;
+  conversations: Conversation[];
+  conversationsEnabled: boolean;
+  setConversationId: (conversationId: number | null) => void;
+  readyState: number;
+  openDropzone?: () => void;
+  uploadingFiles?: UploadingFile[];
+  hiddenLayerIDs: string[];
+  toggleLayerVisibility: (layerId: string) => void;
+  activeActions: EphemeralAction[];
+  setActiveActions: React.Dispatch<React.SetStateAction<EphemeralAction[]>>;
+  addError: (message: string, shouldOverrideMessages?: boolean, sourceId?: string) => void;
+  dismissError: (errorId: string) => void;
+  errors: ErrorEntry[];
+  invalidateProjectData: () => void;
+  invalidateMapData: () => void;
   className?: string;
   onSceneChange?: (scene: SceneType) => void;
-  // 3D场景数据
   hydroScene?: any;
 }
 
@@ -145,17 +167,36 @@ const generateMockData = (sceneType: SceneType) => {
 };
 
 const HydroSceneView: React.FC<HydroSceneViewProps> = ({
-  projectId,
+  mapId,
+  project,
+  mapData,
+  mapTree,
+  conversationId,
+  conversations,
+  conversationsEnabled,
+  setConversationId,
+  readyState,
+  openDropzone,
+  uploadingFiles,
+  hiddenLayerIDs,
+  toggleLayerVisibility,
+  activeActions,
+  setActiveActions,
+  addError,
+  dismissError,
+  errors,
+  invalidateProjectData,
+  invalidateMapData,
   className,
   onSceneChange,
   hydroScene
 }) => {
   // 使用传入的3D场景数据或使用默认值
   const currentScene = hydroScene?.currentScene || 'normal';
-  const [activeTab, setActiveTab] = useState<'2d' | '3d' | 'charts' | 'control'>('2d');
   const [isAnimating, setIsAnimating] = useState(hydroScene?.animationEnabled || false);
   const [currentTimeIndex, setCurrentTimeIndex] = useState(hydroScene?.currentTimeIndex || 0);
   const [showMultiScreen, setShowMultiScreen] = useState(false);
+  const [showSceneController, setShowSceneController] = useState(false);
   const [viewport, setViewport] = useState<
     { longitude: number; latitude: number; zoom: number; pitch: number; bearing: number }
   >(
@@ -168,6 +209,18 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
     }
   );
 
+  // Dummy ref for LayerList since we don't have a MapLibre map
+  const mapRef = useRef(null);
+  const [zoomHistory, setZoomHistory] = useState<Array<{ bounds: [number, number, number, number] }>>([]);
+  const [zoomHistoryIndex, setZoomHistoryIndex] = useState(-1);
+  const [layerSymbols, setLayerSymbols] = useState<{ [layerId: string]: JSX.Element }>({});
+  const [showAttributeTable, setShowAttributeTable] = useState(false);
+  const [selectedLayer, setSelectedLayer] = useState<any>(null);
+  const [assistantExpanded, setAssistantExpanded] = useState(false);
+
+  // 初始化ViewModeToggle控件
+  useViewModeToggle(null); // Pass null as we don't have a MapLibre instance
+
   // 根据当前场景生成数据
   const sceneData = generateMockData(currentScene as SceneType);
 
@@ -175,17 +228,17 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
   const getSceneConfig = useCallback((scene: SceneType) => {
     switch (scene) {
       case 'normal':
-        return { name: '普通模式', defaultView: '2d', color: '#6b7280' };
+        return { name: '普通模式', color: '#6b7280' };
       case 'inspection':
-        return { name: '智能巡检', defaultView: '2d', color: '#10b981' };
+        return { name: '智能巡检', color: '#10b981' };
       case 'emergency':
-        return { name: '应急响应', defaultView: '3d', color: '#ef4444' };
+        return { name: '应急响应', color: '#ef4444' };
       case 'dispatch':
-        return { name: '调度决策', defaultView: 'charts', color: '#f59e0b' };
+        return { name: '调度决策', color: '#f59e0b' };
       case 'analysis':
-        return { name: '数据分析', defaultView: 'charts', color: '#8b5cf6' };
+        return { name: '数据分析', color: '#8b5cf6' };
       default:
-        return { name: '普通模式', defaultView: '2d', color: '#6b7280' };
+        return { name: '普通模式', color: '#6b7280' };
     }
   }, []);
 
@@ -195,13 +248,7 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
   const handleSceneChange = useCallback((scene: SceneType, context?: any) => {
     console.log(`场景切换到: ${scene}`, context);
     onSceneChange?.(scene);
-
-    // 根据场景类型自动选择最佳视图
-    const config = getSceneConfig(scene);
-    if (config.defaultView) {
-      setActiveTab(config.defaultView as any);
-    }
-  }, [onSceneChange, getSceneConfig]);
+  }, [onSceneChange]);
 
   // 处理时间轴变化
   const handleTimeChange = useCallback((timeIndex: number) => {
@@ -213,40 +260,6 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
     setViewport(newViewport);
   }, []);
 
-  // 渲染2D地图视图
-  const render2DMap = () => (
-    <div className="relative w-full h-full">
-      {/* 这里可以集成现有的MapLibreMap组件 */}
-      <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <Map className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-          <h3 className="text-lg font-medium text-gray-600">2D地图视图</h3>
-          <p className="text-sm text-gray-500">集成MapLibre GL JS</p>
-          <p className="text-xs text-gray-400 mt-2">当前场景: {currentConfig.name}</p>
-        </div>
-      </div>
-
-      {/* 场景特定的2D覆盖层 */}
-      {currentScene === 'inspection' && sceneData.monitoringPoints && (
-        <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-4">
-          <h4 className="font-medium mb-2">监测点概览</h4>
-          <div className="space-y-2">
-            {sceneData.monitoringPoints.map((point: any) => (
-              <div key={point.id} className="flex items-center gap-2 text-sm">
-                <div className={`w-3 h-3 rounded-full ${
-                  point.status === 'normal' ? 'bg-green-500' :
-                  point.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
-                }`} />
-                <span>{point.name}</span>
-                <span className="text-gray-500">{point.value}{point.unit}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
   // 渲染3D场景视图
   const render3DScene = () => {
     if (currentScene === 'emergency' && sceneData.floodData) {
@@ -257,7 +270,7 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
           floodData={sceneData.floodData}
           onViewportChange={handleViewportChange}
           onTimeChange={handleTimeChange}
-          showControls={true}
+          showControls={false} // Hide internal controls
           animationEnabled={isAnimating}
         />
       );
@@ -273,7 +286,7 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
           onScenarioSelect={(scenarioId) => {
             console.log('选中方案:', scenarioId);
           }}
-          showControls={true}
+          showControls={false} // Hide internal controls
         />
       );
     }
@@ -289,215 +302,156 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
         }}
         monitoringPoints={sceneData.monitoringPoints || []}
         onCameraChange={handleViewportChange}
+        showInternalControls={false} // Hide internal controls
       />
     );
   };
 
-  // 渲染数据分析视图
-  const renderCharts = () => (
-    <div className="w-full h-full bg-white p-4">
-      <div className="grid grid-cols-2 gap-4 h-full">
-        {/* 水位趋势图 */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              水位趋势
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)]">
-            <div className="w-full h-full bg-gray-50 rounded flex items-center justify-center">
-              <span className="text-gray-500">水位趋势图表</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 流量分析图 */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              流量分析
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)]">
-            <div className="w-full h-full bg-gray-50 rounded flex items-center justify-center">
-              <span className="text-gray-500">流量分析图表</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 发电效率图 */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              发电效率
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)]">
-            <div className="w-full h-full bg-gray-50 rounded flex items-center justify-center">
-              <span className="text-gray-500">发电效率图表</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 异常检测图 */}
-        <Card className="h-full">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              异常检测
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)]">
-            <div className="w-full h-full bg-gray-50 rounded flex items-center justify-center">
-              <span className="text-gray-500">异常检测图表</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  // 渲染控制面板
-  const renderControlPanel = () => (
-    <div className="w-full h-full">
-      <SceneController onSceneChange={handleSceneChange} />
-    </div>
-  );
-
-  // 渲染工具栏
-  const renderToolbar = () => (
-    <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-      {/* 动画控制（仅在洪水模拟时显示） */}
-      {currentScene === 'emergency' && (
-        <Button
-          size="sm"
-          onClick={() => setIsAnimating(!isAnimating)}
-          className="bg-blue-600 hover:bg-blue-700"
-        >
-          {isAnimating ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-        </Button>
-      )}
-
-      {/* 视角重置 */}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setViewport({
-          longitude: 111.0,
-          latitude: 30.8,
-          zoom: 8,
-          pitch: 0,
-          bearing: 0
-        })}
-      >
-        <RotateCcw className="h-4 w-4" />
-      </Button>
-
-      {/* 多屏控制 */}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => setShowMultiScreen(!showMultiScreen)}
-        className={showMultiScreen ? 'bg-blue-100' : ''}
-      >
-        <Maximize2 className="h-4 w-4" />
-      </Button>
-
-      {/* 导出功能 */}
-      <Button size="sm" variant="outline">
-        <Download className="h-4 w-4" />
-      </Button>
-
-      {/* 分享功能 */}
-      <Button size="sm" variant="outline">
-        <Share2 className="h-4 w-4" />
-      </Button>
-    </div>
-  );
-
   return (
     <div className={`hydro-scene-view w-full h-full relative ${className || ''}`}>
-      {/* 状态栏 */}
-      <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-3 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-2xl">{currentConfig.icon}</div>
-            <div>
-              <h2 className="text-lg font-semibold">{currentConfig.name}</h2>
-              <p className="text-sm opacity-90">{currentConfig.description}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className={`${currentConfig.bgColor} text-white border-none`}>
-              {currentConfig.name}
-            </Badge>
-            <Badge variant="outline" className="text-white border-white/30">
-              项目: {projectId}
-            </Badge>
-          </div>
-        </div>
+      {/* 3D Scene Background */}
+      <div className="absolute inset-0 z-0">
+        {render3DScene()}
       </div>
 
-      {/* 主内容区域 */}
-      <div className="pt-20 h-full">
-        {/* 多屏控制面板（可折叠） */}
-        {showMultiScreen && (
-          <div className="absolute top-20 left-4 right-4 z-20">
-            <MultiScreenController className="shadow-xl" />
+      {/* Top Left - Layer List */}
+      <LayerList
+        project={project}
+        currentMapData={mapData || { project_id: project.id, map_id: mapId, layers: [] }}
+        mapRef={mapRef}
+        openDropzone={openDropzone || (() => { })}
+        activeActions={activeActions}
+        readyState={readyState}
+        isInConversation={!!conversationId}
+        setShowAttributeTable={setShowAttributeTable}
+        setSelectedLayer={setSelectedLayer}
+        updateMapData={invalidateMapData}
+        layerSymbols={layerSymbols}
+        zoomHistory={zoomHistory}
+        zoomHistoryIndex={zoomHistoryIndex}
+        setZoomHistoryIndex={setZoomHistoryIndex}
+        uploadingFiles={uploadingFiles}
+        demoConfig={{ available: false, description: '' }}
+        hiddenLayerIDs={hiddenLayerIDs}
+        toggleLayerVisibility={toggleLayerVisibility}
+        errors={errors}
+      />
+
+      {/* Top Right - Scene Controls & Tools */}
+      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10">
+        {/* Scene Mode Badge */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-md p-2 shadow-md flex items-center gap-2">
+          <Badge className={`${currentConfig.color} text-white border-none`}>
+            {currentConfig.name}
+          </Badge>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+            onClick={() => setShowSceneController(!showSceneController)}
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {/* Scene Controller Panel (Collapsible) */}
+        {showSceneController && (
+          <div className="bg-white/90 backdrop-blur-sm rounded-md p-2 shadow-md w-64">
+            <SceneController onSceneChange={handleSceneChange} />
           </div>
         )}
 
-        {/* 视图切换标签 */}
-        <div className="h-full flex flex-col">
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)} className="flex-1">
-            <div className="px-4 border-b bg-white/80 backdrop-blur-sm">
-              <TabsList className="grid grid-cols-4 w-full max-w-md">
-                <TabsTrigger value="2d" className="flex items-center gap-2">
-                  <Map className="h-4 w-4" />
-                  2D地图
-                </TabsTrigger>
-                <TabsTrigger value="3d" className="flex items-center gap-2">
-                  <Globe className="h-4 w-4" />
-                  3D场景
-                </TabsTrigger>
-                <TabsTrigger value="charts" className="flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4" />
-                  数据分析
-                </TabsTrigger>
-                <TabsTrigger value="control" className="flex items-center gap-2">
-                  <Settings className="h-4 w-4" />
-                  场景控制
-                </TabsTrigger>
-              </TabsList>
-            </div>
+        {/* Animation Controls (Emergency Mode) */}
+        {currentScene === 'emergency' && (
+          <div className="bg-white/90 backdrop-blur-sm rounded-md p-2 shadow-md">
+            <Button
+              size="sm"
+              onClick={() => setIsAnimating(!isAnimating)}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {isAnimating ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+              {isAnimating ? '暂停模拟' : '开始模拟'}
+            </Button>
+          </div>
+        )}
 
-            {/* 工具栏 */}
-            {renderToolbar()}
-
-            {/* 内容区域 */}
-            <div className="flex-1 p-4">
-              <TabsContent value="2d" className="mt-0 h-full">
-                {render2DMap()}
-              </TabsContent>
-
-              <TabsContent value="3d" className="mt-0 h-full">
-                {render3DScene()}
-              </TabsContent>
-
-              <TabsContent value="charts" className="mt-0 h-full">
-                {renderCharts()}
-              </TabsContent>
-
-              <TabsContent value="control" className="mt-0 h-full">
-                {renderControlPanel()}
-              </TabsContent>
-            </div>
-          </Tabs>
+        {/* View Controls */}
+        <div className="bg-white/90 backdrop-blur-sm rounded-md p-1 shadow-md flex flex-col gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setViewport({
+              longitude: 111.0,
+              latitude: 30.8,
+              zoom: 8,
+              pitch: 0,
+              bearing: 0
+            })}
+            title="重置视角"
+          >
+            <RotateCcw className="h-4 w-4" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowMultiScreen(!showMultiScreen)}
+            className={showMultiScreen ? 'bg-blue-100' : ''}
+            title="多屏控制"
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" title="导出">
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button size="sm" variant="ghost" title="分享">
+            <Share2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
+
+      {/* Bottom Left - Basemap Control */}
+      <div className="absolute bottom-8 left-4 z-10">
+        <BasemapControl
+          currentBasemap="satellite" // Default to satellite for 3D
+          onBasemapChange={(style) => console.log('Basemap changed:', style)}
+          availableBasemaps={['satellite', 'streets', 'dark']} // Mock available basemaps
+          displayNames={{ satellite: '卫星影像', streets: '街道地图', dark: '暗色模式' }}
+        />
+      </div>
+
+      {/* Bottom Center - Mic Button */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20">
+        <MicButton
+          onStateChange={(state) => console.log('Mic state:', state)}
+          onTranscript={(text) => console.log('Transcript:', text)}
+          engine={new XunfeiIatEngine()}
+        />
+      </div>
+
+      {/* Multi-screen Controller Overlay */}
+      {showMultiScreen && (
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-20">
+          <MultiScreenController className="shadow-xl" />
+        </div>
+      )}
+
+      {/* Monitoring Points Overlay (Inspection Mode) */}
+      {currentScene === 'inspection' && sceneData.monitoringPoints && (
+        <div className="absolute top-20 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-md z-10 max-w-xs">
+          <h4 className="font-medium mb-2 text-sm">监测点概览</h4>
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {sceneData.monitoringPoints.map((point: any) => (
+              <div key={point.id} className="flex items-center gap-2 text-xs p-1 hover:bg-gray-100 rounded cursor-pointer">
+                <div className={`w-2 h-2 rounded-full ${point.status === 'normal' ? 'bg-green-500' :
+                    point.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                  }`} />
+                <span className="font-medium">{point.name}</span>
+                <span className="text-gray-500 ml-auto">{point.value}{point.unit}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

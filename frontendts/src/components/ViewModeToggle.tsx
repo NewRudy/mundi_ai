@@ -38,10 +38,7 @@ class ViewModeToggleControl {
     iconDiv.innerHTML = this.getCurrentModeIcon();
     this.mainButton.appendChild(iconDiv);
 
-    const labelDiv = document.createElement('div');
-    labelDiv.className = 'current-mode-label';
-    labelDiv.textContent = this.getCurrentModeLabel();
-    this.mainButton.appendChild(labelDiv);
+    this.mainButton.appendChild(iconDiv);
 
     this.container.appendChild(this.mainButton);
 
@@ -159,12 +156,6 @@ class ViewModeToggleControl {
     const iconDiv = this.mainButton.querySelector('.current-mode-icon') as HTMLElement;
     if (iconDiv) {
       iconDiv.innerHTML = this.getModeIcon(mode);
-    }
-
-    // 更新标签
-    const labelDiv = this.mainButton.querySelector('.current-mode-label') as HTMLElement;
-    if (labelDiv) {
-      labelDiv.textContent = this.getModeLabel(mode);
     }
 
     // 更新标题
@@ -298,26 +289,22 @@ const style = document.createElement('style');
 style.textContent = `
   .view-mode-toggle-popup {
     position: relative;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-    border-radius: 4px;
-    overflow: visible;
-    background: #fff;
+    overflow: visible !important; /* Ensure dropdown can be seen */
   }
 
   .view-mode-toggle-popup .maplibregl-ctrl-icon.main-toggle-btn {
-    width: auto !important;
-    min-width: 44px;
-    height: 30px;
+    width: 29px !important;
+    height: 29px !important;
+    min-width: unset !important;
     border: none;
     background-color: #fff;
     cursor: pointer;
     display: flex !important;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    position: relative;
-    padding: 2px 6px;
-    transition: all 0.2s ease;
+    padding: 0;
+    transition: background-color 0.2s ease;
+    outline: none;
   }
 
   .view-mode-toggle-popup .maplibregl-ctrl-icon.main-toggle-btn:hover {
@@ -325,11 +312,12 @@ style.textContent = `
   }
 
   .view-mode-toggle-popup .current-mode-icon {
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #333;
   }
 
   .view-mode-toggle-popup .current-mode-icon svg {
@@ -337,22 +325,23 @@ style.textContent = `
     height: 100%;
   }
 
-  .view-mode-toggle-popup .current-mode-label {
-    font-size: 9px;
-    margin-top: 1px;
-    font-weight: 600;
-  }
-
   .view-mode-dropdown {
     position: absolute;
-    top: calc(100% + 5px);
-    right: 0;
+    top: 0;
+    right: 35px; /* Position to the left of the button */
     background: #fff;
     border-radius: 4px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-    min-width: 120px;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+    min-width: 140px;
     overflow: hidden;
     z-index: 9999;
+    display: none; /* Default hidden */
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateX(5px); }
+    to { opacity: 1; transform: translateX(0); }
   }
 
   .view-mode-toggle-popup.dropdown-open .view-mode-dropdown {
@@ -362,12 +351,13 @@ style.textContent = `
   .dropdown-menu-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 10px;
+    padding: 10px 12px;
     cursor: pointer;
     transition: all 0.2s ease;
-    border-bottom: 1px solid #eee;
-    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 13px;
+    color: #333;
   }
 
   .dropdown-menu-item:last-child {
@@ -375,17 +365,17 @@ style.textContent = `
   }
 
   .dropdown-menu-item:hover {
-    background-color: #f5f5f5;
+    background-color: #f9fafb;
   }
 
   .dropdown-menu-item.active {
-    background-color: #10b981;
-    color: white;
+    background-color: #eff6ff;
+    color: #2563eb;
     font-weight: 500;
   }
 
-  .dropdown-menu-item.active:hover {
-    background-color: #059669;
+  .dropdown-menu-item.active .menu-item-icon {
+    color: #2563eb;
   }
 
   .menu-item-icon {
@@ -394,6 +384,7 @@ style.textContent = `
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #666;
   }
 
   .menu-item-icon svg {

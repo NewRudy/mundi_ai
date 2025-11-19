@@ -69,6 +69,9 @@ interface CesiumViewerProps {
   // 样式配置
   className?: string;
   style?: React.CSSProperties;
+
+  // 是否显示内部控制面板
+  showInternalControls?: boolean;
 }
 
 // 监测点图标配置
@@ -112,7 +115,8 @@ const CesiumViewer: React.FC<CesiumViewerProps> = ({
   onPointClick,
   onReady,
   className,
-  style
+  style,
+  showInternalControls = true
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Cesium.Viewer | null>(null);
@@ -127,87 +131,87 @@ const CesiumViewer: React.FC<CesiumViewerProps> = ({
       try {
         // Cesium配置
         const cesiumConfig: any = {
-        terrainProvider: await Cesium.createWorldTerrainAsync({
-          requestVertexNormals: true,
-          requestWaterMask: true
-        }),
-        imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }), // Sentinel-2
-        baseLayerPicker: false,
-        geocoder: false,
-        homeButton: false,
-        sceneModePicker: false,
-        navigationHelpButton: false,
-        animation: false,
-        timeline: false,
-        fullscreenButton: false,
-        vrButton: false,
-        infoBox: true,
-        selectionIndicator: true,
-        shadows: true,
-        terrainShadows: Cesium.ShadowMode.ENABLED
-      };
+          // terrainProvider: await Cesium.createWorldTerrainAsync({
+          //   requestVertexNormals: true,
+          //   requestWaterMask: true
+          // }),
+          imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }), // Sentinel-2
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          animation: false,
+          timeline: false,
+          fullscreenButton: false,
+          vrButton: false,
+          infoBox: true,
+          selectionIndicator: true,
+          shadows: true,
+          terrainShadows: Cesium.ShadowMode.ENABLED
+        };
 
-      // 如果提供了自定义地形
-      if (terrainProvider) {
-        cesiumConfig.terrainProvider = new Cesium.CesiumTerrainProvider({
-          url: terrainProvider.url,
-          requestVertexNormals: terrainProvider.requestVertexNormals,
-          requestWaterMask: terrainProvider.requestWaterMask
-        });
-      }
-
-      // 创建Viewer
-      const viewer = new Cesium.Viewer(containerRef.current, cesiumConfig);
-      viewerRef.current = viewer;
-
-      // 设置初始相机位置
-      if (initialCamera) {
-        viewer.camera.setView({
-          destination: Cesium.Cartesian3.fromDegrees(
-            initialCamera.longitude,
-            initialCamera.latitude,
-            initialCamera.height
-          ),
-          orientation: {
-            heading: Cesium.Math.toRadians(initialCamera.heading || 0),
-            pitch: Cesium.Math.toRadians(initialCamera.pitch || -90),
-            roll: Cesium.Math.toRadians(initialCamera.roll || 0)
-          }
-        });
-      } else {
-        // 默认视角：三峡大坝
-        viewer.camera.setView({
-          destination: Cesium.Cartesian3.fromDegrees(111.006, 30.827, 10000),
-          orientation: {
-            heading: Cesium.Math.toRadians(0),
-            pitch: Cesium.Math.toRadians(-45),
-            roll: 0
-          }
-        });
-      }
-
-      // 添加光照效果
-      viewer.scene.light = new Cesium.DirectionalLight({
-        direction: new Cesium.Cartesian3(0.354, -0.890, -0.288),
-        color: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
-        intensity: 2.0
-      });
-
-      // 监听相机变化
-      if (onCameraChange) {
-        viewer.camera.changed.addEventListener(() => {
-          const camera = viewer.camera;
-          const cartographic = Cesium.Cartographic.fromCartesian(camera.position);
-          onCameraChange({
-            longitude: Cesium.Math.toDegrees(cartographic.longitude),
-            latitude: Cesium.Math.toDegrees(cartographic.latitude),
-            height: cartographic.height,
-            heading: Cesium.Math.toDegrees(camera.heading),
-            pitch: Cesium.Math.toDegrees(camera.pitch),
-            roll: Cesium.Math.toDegrees(camera.roll)
+        // 如果提供了自定义地形
+        if (terrainProvider) {
+          cesiumConfig.terrainProvider = new Cesium.CesiumTerrainProvider({
+            url: terrainProvider.url,
+            requestVertexNormals: terrainProvider.requestVertexNormals,
+            requestWaterMask: terrainProvider.requestWaterMask
           });
+        }
+
+        // 创建Viewer
+        const viewer = new Cesium.Viewer(containerRef.current, cesiumConfig);
+        viewerRef.current = viewer;
+
+        // 设置初始相机位置
+        if (initialCamera) {
+          viewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(
+              initialCamera.longitude,
+              initialCamera.latitude,
+              initialCamera.height
+            ),
+            orientation: {
+              heading: Cesium.Math.toRadians(initialCamera.heading || 0),
+              pitch: Cesium.Math.toRadians(initialCamera.pitch || -90),
+              roll: Cesium.Math.toRadians(initialCamera.roll || 0)
+            }
+          });
+        } else {
+          // 默认视角：三峡大坝
+          viewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(111.006, 30.827, 10000),
+            orientation: {
+              heading: Cesium.Math.toRadians(0),
+              pitch: Cesium.Math.toRadians(-45),
+              roll: 0
+            }
+          });
+        }
+
+        // 添加光照效果
+        viewer.scene.light = new Cesium.DirectionalLight({
+          direction: new Cesium.Cartesian3(0.354, -0.890, -0.288),
+          color: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
+          intensity: 2.0
         });
-      }
+
+        // 监听相机变化
+        if (onCameraChange) {
+          viewer.camera.changed.addEventListener(() => {
+            const camera = viewer.camera;
+            const cartographic = Cesium.Cartographic.fromCartesian(camera.position);
+            onCameraChange({
+              longitude: Cesium.Math.toDegrees(cartographic.longitude),
+              latitude: Cesium.Math.toDegrees(cartographic.latitude),
+              height: cartographic.height,
+              heading: Cesium.Math.toDegrees(camera.heading),
+              pitch: Cesium.Math.toDegrees(camera.pitch),
+              roll: Cesium.Math.toDegrees(camera.roll)
+            });
+          });
+        }
 
         setIsLoading(false);
         onReady?.(viewer);
@@ -387,66 +391,68 @@ const CesiumViewer: React.FC<CesiumViewerProps> = ({
       />
 
       {/* 控制面板 */}
-      <div className="cesium-controls">
-        <div className="control-panel">
-          <h4>🌍 3D地球控制</h4>
-          <div className="control-buttons">
-            <button
-              onClick={() => {
-                if (viewerRef.current) {
-                  viewerRef.current.camera.flyHome(2);
-                }
-              }}
-              className="cesium-button"
-            >
-              🏠 重置视角
-            </button>
-            <button
-              onClick={() => {
-                if (viewerRef.current) {
-                  viewerRef.current.scene.globe.show = !viewerRef.current.scene.globe.show;
-                }
-              }}
-              className="cesium-button"
-            >
-              🌐 切换地形
-            </button>
-            <button
-              onClick={captureScreenshot}
-              className="cesium-button"
-            >
-              📸 截图
-            </button>
-          </div>
+      {showInternalControls && (
+        <div className="cesium-controls">
+          <div className="control-panel">
+            <h4>🌍 3D地球控制</h4>
+            <div className="control-buttons">
+              <button
+                onClick={() => {
+                  if (viewerRef.current) {
+                    viewerRef.current.camera.flyHome(2);
+                  }
+                }}
+                className="cesium-button"
+              >
+                🏠 重置视角
+              </button>
+              <button
+                onClick={() => {
+                  if (viewerRef.current) {
+                    viewerRef.current.scene.globe.show = !viewerRef.current.scene.globe.show;
+                  }
+                }}
+                className="cesium-button"
+              >
+                🌐 切换地形
+              </button>
+              <button
+                onClick={captureScreenshot}
+                className="cesium-button"
+              >
+                📸 截图
+              </button>
+            </div>
 
-          {/* 监测点统计 */}
-          {monitoringPoints.length > 0 && (
-            <div className="monitoring-stats">
-              <h5>监测点统计</h5>
-              <div className="stats-grid">
-                <div className="stat-item">
-                  <span className="stat-label">正常</span>
-                  <span className="stat-value normal">
-                    {monitoringPoints.filter(p => p.status === 'normal').length}
-                  </span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">警告</span>
-                  <span className="stat-value warning">
-                    {monitoringPoints.filter(p => p.status === 'warning').length}
-                  </span>
-                </div>
-                <div className="stat-item">
-                  <span className="stat-label">危险</span>
-                  <span className="stat-value danger">
-                    {monitoringPoints.filter(p => p.status === 'danger').length}
-                  </span>
+            {/* 监测点统计 */}
+            {monitoringPoints.length > 0 && (
+              <div className="monitoring-stats">
+                <h5>监测点统计</h5>
+                <div className="stats-grid">
+                  <div className="stat-item">
+                    <span className="stat-label">正常</span>
+                    <span className="stat-value normal">
+                      {monitoringPoints.filter(p => p.status === 'normal').length}
+                    </span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">警告</span>
+                    <span className="stat-value warning">
+                      {monitoringPoints.filter(p => p.status === 'warning').length}
+                    </span>
+                  </div>
+                  <div className="stat-item">
+                    <span className="stat-label">危险</span>
+                    <span className="stat-value danger">
+                      {monitoringPoints.filter(p => p.status === 'danger').length}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
