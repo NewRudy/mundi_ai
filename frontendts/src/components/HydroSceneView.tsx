@@ -24,7 +24,7 @@ import MultiScreenController from './MultiScreenController';
 import { useSceneStore, SceneType } from '../store/useSceneStore';
 import LayerList from '@/components/LayerList';
 import { MicButton } from '@/components/MicButton';
-import { BasemapControl } from './BasemapControl';
+import { BasemapWidget } from './BasemapWidget';
 import { useViewModeToggle } from '@/components/ViewModeToggle';
 import { XunfeiIatEngine } from '@/asr/xunfei';
 
@@ -411,7 +411,7 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
 
       {/* Bottom Left - Basemap Control */}
       <div className="absolute bottom-8 left-4 z-10">
-        <BasemapControl
+        <BasemapWidget
           currentBasemap="satellite" // Default to satellite for 3D
           onBasemapChange={(style) => console.log('Basemap changed:', style)}
           availableBasemaps={['satellite', 'streets', 'dark']} // Mock available basemaps
@@ -443,7 +443,7 @@ const HydroSceneView: React.FC<HydroSceneViewProps> = ({
             {sceneData.monitoringPoints.map((point: any) => (
               <div key={point.id} className="flex items-center gap-2 text-xs p-1 hover:bg-gray-100 rounded cursor-pointer">
                 <div className={`w-2 h-2 rounded-full ${point.status === 'normal' ? 'bg-green-500' :
-                    point.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                  point.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
                   }`} />
                 <span className="font-medium">{point.name}</span>
                 <span className="text-gray-500 ml-auto">{point.value}{point.unit}</span>

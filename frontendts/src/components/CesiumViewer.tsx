@@ -128,6 +128,8 @@ const CesiumViewer: React.FC<CesiumViewerProps> = ({
     const initViewer = async () => {
       if (!containerRef.current) return;
 
+      console.log('Cesium object:', Cesium);
+
       try {
         // Cesium配置
         const cesiumConfig: any = {
@@ -135,7 +137,7 @@ const CesiumViewer: React.FC<CesiumViewerProps> = ({
           //   requestVertexNormals: true,
           //   requestWaterMask: true
           // }),
-          imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }), // Sentinel-2
+          // imageryProvider: new Cesium.IonImageryProvider({ assetId: 2 }), // Sentinel-2
           baseLayerPicker: false,
           geocoder: false,
           homeButton: false,
@@ -191,32 +193,33 @@ const CesiumViewer: React.FC<CesiumViewerProps> = ({
         }
 
         // 添加光照效果
-        viewer.scene.light = new Cesium.DirectionalLight({
-          direction: new Cesium.Cartesian3(0.354, -0.890, -0.288),
-          color: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
-          intensity: 2.0
-        });
+        // viewer.scene.light = new Cesium.DirectionalLight({
+        //   direction: new Cesium.Cartesian3(0.354, -0.890, -0.288),
+        //   color: new Cesium.Color(1.0, 1.0, 1.0, 1.0),
+        //   intensity: 2.0
+        // });
 
         // 监听相机变化
-        if (onCameraChange) {
-          viewer.camera.changed.addEventListener(() => {
-            const camera = viewer.camera;
-            const cartographic = Cesium.Cartographic.fromCartesian(camera.position);
-            onCameraChange({
-              longitude: Cesium.Math.toDegrees(cartographic.longitude),
-              latitude: Cesium.Math.toDegrees(cartographic.latitude),
-              height: cartographic.height,
-              heading: Cesium.Math.toDegrees(camera.heading),
-              pitch: Cesium.Math.toDegrees(camera.pitch),
-              roll: Cesium.Math.toDegrees(camera.roll)
-            });
-          });
-        }
+        // if (onCameraChange) {
+        //   viewer.camera.changed.addEventListener(() => {
+        //     const camera = viewer.camera;
+        //     const cartographic = Cesium.Cartographic.fromCartesian(camera.position);
+        //     onCameraChange({
+        //       longitude: Cesium.Math.toDegrees(cartographic.longitude),
+        //       latitude: Cesium.Math.toDegrees(cartographic.latitude),
+        //       height: cartographic.height,
+        //       heading: Cesium.Math.toDegrees(camera.heading),
+        //       pitch: Cesium.Math.toDegrees(camera.pitch),
+        //       roll: Cesium.Math.toDegrees(camera.roll)
+        //     });
+        //   });
+        // }
 
         setIsLoading(false);
         onReady?.(viewer);
 
       } catch (err) {
+        console.error('Cesium init error:', err);
         setError(err instanceof Error ? err.message : 'Cesium初始化失败');
         setIsLoading(false);
       }

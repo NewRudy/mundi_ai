@@ -4,6 +4,10 @@ import './index.css';
 import { init } from '@mundi/ee';
 import App from './App';
 
+// Set Cesium Base URL to CDN to fix missing assets (Workers, etc.)
+// This avoids the need for vite-plugin-cesium or manual asset copying
+(window as any).CESIUM_BASE_URL = 'https://unpkg.com/cesium@1.122.0/Build/Cesium/';
+
 init()
   .then(() => {
     createRoot(document.getElementById('root')!).render(
