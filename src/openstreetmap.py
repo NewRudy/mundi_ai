@@ -26,7 +26,7 @@ from src.routes.postgres_routes import (
     internal_upload_layer,
     InternalLayerUploadResponse,
 )
-from src.structures import async_conn
+from src.core.connection_wrapper import get_async_db_connection
 
 
 async def download_from_openstreetmap(
@@ -54,7 +54,7 @@ async def download_from_openstreetmap(
 
     # Get project_id from map_id
     user_id = session.get_user_id()
-    async with async_conn("get_project_id_for_osm") as conn:
+    async with get_async_db_connection("get_project_id_for_osm") as conn:
         map_row = await conn.fetchrow(
             """
             SELECT project_id

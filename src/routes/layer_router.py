@@ -658,7 +658,7 @@ async def get_layer_mvt_tile(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid tile coordinates"
         )
-    async with async_conn("mvt") as conn:
+    async with get_async_db_connection("mvt") as conn:
         # Get PostGIS connection details (authorization handled by get_layer)
         connection_details = await conn.fetchrow(
             """

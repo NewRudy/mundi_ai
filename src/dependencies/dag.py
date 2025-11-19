@@ -17,7 +17,7 @@ from fastapi import Path, Depends, HTTPException
 import os
 
 from src.database.models import MundiMap, MundiProject, MapLayer
-from src.structures import async_conn
+from src.core.connection_wrapper import get_async_db_connection
 from src.dependencies.session import (
     UserContext,
     verify_session_required,
@@ -33,7 +33,7 @@ async def forked_map(
     """Fork a map for edit operations and return the new map"""
     user_id = session.get_user_id()
 
-    async with async_conn("forked_map") as conn:
+    async with get_async_db_connection("forked_map") as conn:
         source_map = await conn.fetchrow(
             """
             SELECT m.id, m.project_id, m.title, m.description, m.layers, m.basemap
@@ -123,7 +123,7 @@ async def get_map(
     """Get a map that the user owns"""
     user_id = session.get_user_id()
 
-    async with async_conn("get_map") as conn:
+    async with get_async_db_connection("get_map") as conn:
         map_row = await conn.fetchrow(
             """
             SELECT *
@@ -142,7 +142,7 @@ async def get_map(
 async def get_layer(
     layer_id: str = Path(...),
 ) -> MapLayer:
-    async with async_conn("get_layer") as conn:
+    async with get_async_db_connection("get_layer") as conn:
         layer_row = await conn.fetchrow(
             """
             SELECT *
@@ -164,7 +164,7 @@ async def get_project(
     """Get a project that the user owns"""
     user_id = session.get_user_id()
 
-    async with async_conn("get_project") as conn:
+    async with get_async_db_connection("get_project") as conn:
         project_row = await conn.fetchrow(
             """
             SELECT *

@@ -128,6 +128,14 @@ class UserProjectsResponse(BaseModel):
 
 
 @project_router.get(
+    "/test", operation_id="test_projects"
+)
+async def test_projects():
+    """Test endpoint without authentication"""
+    return {"message": "Project routes are working!"}
+
+
+@project_router.get(
     "/", response_model=UserProjectsResponse, operation_id="list_user_projects"
 )
 async def list_user_projects(
@@ -140,100 +148,110 @@ async def list_user_projects(
     List all projects associated with the authenticated user.
     A project is associated if the user is the owner, an editor, or a viewer.
     """
-    user_id = session.get_user_id()
+    try:
+        user_id = session.get_user_id()
 
-    # Calculate offset for pagination
-    offset = (page - 1) * limit
+        # Calculate offset for pagination
+        offset = (page - 1) * limit
 
-    async with get_async_db_connection() as conn:
-        # Get total count for pagination
-        total_items = await conn.fetchval(
-            """
-            SELECT COUNT(*)
-            FROM user_mundiai_projects p
-            WHERE (
-                p.owner_uuid = $1 OR
-                $2 = ANY(p.editor_uuids) OR
-                $3 = ANY(p.viewer_uuids)
-            ) AND ($4 OR p.soft_deleted_at IS NULL)
-            """,
-            user_id,
-            user_id,
-            user_id,
-            include_deleted,
-        )
-
-        # Calculate total pages
-        total_pages = (total_items + limit - 1) // limit
-
-        projects_data = await conn.fetch(
-            """
-            SELECT p.id, p.title, p.maps, p.created_on, p.soft_deleted_at
-            FROM user_mundiai_projects p
-            WHERE (
-                p.owner_uuid = $1 OR
-                $2 = ANY(p.editor_uuids) OR
-                $3 = ANY(p.viewer_uuids)
-            ) AND ($4 OR p.soft_deleted_at IS NULL)
-            ORDER BY p.created_on DESC
-            LIMIT $5 OFFSET $6
-            """,
-            user_id,
-            user_id,
-            user_id,
-            include_deleted,
-            limit,
-            offset,
-        )
-
-        projects_response = []
-        for project_data in projects_data:
-            created_on_str = (
-                project_data["created_on"].isoformat()
-                if isinstance(project_data["created_on"], datetime)
-                else str(project_data["created_on"])
-            )
-            most_recent_map_details = None
-
-            if project_data["maps"] and len(project_data["maps"]) > 0:
-                most_recent_map_id = project_data["maps"][-1]
-
-                map_details = await conn.fetchrow(
-                    """
-                    SELECT title, description, last_edited
-                    FROM user_mundiai_maps
-                    WHERE id = $1 AND soft_deleted_at IS NULL
-                    """,
-                    most_recent_map_id,
-                )
-                if map_details:
-                    last_edited_str = (
-                        map_details["last_edited"].isoformat()
-                        if isinstance(map_details["last_edited"], datetime)
-                        else str(map_details["last_edited"])
-                    )
-                    most_recent_map_details = MostRecentVersion(
-                        title=map_details["title"],
-                        description=map_details["description"],
-                        last_edited=last_edited_str,
-                    )
-
-            projects_response.append(
-                ProjectResponse(
-                    id=project_data["id"],
-                    title=project_data["title"],
-                    maps=project_data["maps"],
-                    created_on=created_on_str,
-                    most_recent_version=most_recent_map_details,
-                    soft_deleted_at=project_data["soft_deleted_at"],
-                )
+        async with get_async_db_connection() as conn:
+            # Get total count for pagination
+            total_items = await conn.fetchval(
+                """
+                SELECT COUNT(*)
+                FROM user_mundiai_projects p
+                WHERE (
+                    p.owner_uuid = $1 OR
+                    $2 = ANY(p.editor_uuids) OR
+                    $3 = ANY(p.viewer_uuids)
+                ) AND ($4 OR p.soft_deleted_at IS NULL)
+                """,
+                user_id,
+                user_id,
+                user_id,
+                include_deleted,
             )
 
-    return UserProjectsResponse(
-        projects=projects_response,
-        total_pages=total_pages,
-        total_items=total_items,
-    )
+            # Calculate total pages
+            total_pages = (total_items + limit - 1) // limit
+
+            projects_data = await conn.fetch(
+                """
+                SELECT p.id, p.title, p.maps, p.created_on, p.soft_deleted_at
+                FROM user_mundiai_projects p
+                WHERE (
+                    p.owner_uuid = $1 OR
+                    $2 = ANY(p.editor_uuids) OR
+                    $3 = ANY(p.viewer_uuids)
+                ) AND ($4 OR p.soft_deleted_at IS NULL)
+                ORDER BY p.created_on DESC
+                LIMIT $5 OFFSET $6
+                """,
+                user_id,
+                user_id,
+                user_id,
+                include_deleted,
+                limit,
+                offset,
+            )
+
+            projects_response = []
+            for project_data in projects_data:
+                created_on_str = (
+                    project_data["created_on"].isoformat()
+                    if isinstance(project_data["created_on"], datetime)
+                    else str(project_data["created_on"])
+                )
+                most_recent_map_details = None
+
+                if project_data["maps"] and len(project_data["maps"]) > 0:
+                    most_recent_map_id = project_data["maps"][-1]
+
+                    map_details = await conn.fetchrow(
+                        """
+                        SELECT title, description, last_edited
+                        FROM user_mundiai_maps
+                        WHERE id = $1 AND soft_deleted_at IS NULL
+                        """,
+                        most_recent_map_id,
+                    )
+                    if map_details:
+                        last_edited_str = (
+                            map_details["last_edited"].isoformat()
+                            if isinstance(map_details["last_edited"], datetime)
+                            else str(map_details["last_edited"])
+                        )
+                        most_recent_map_details = MostRecentVersion(
+                            title=map_details["title"],
+                            description=map_details["description"],
+                            last_edited=last_edited_str,
+                        )
+
+                projects_response.append(
+                    ProjectResponse(
+                        id=project_data["id"],
+                        title=project_data["title"],
+                        maps=project_data["maps"],
+                        created_on=created_on_str,
+                        most_recent_version=most_recent_map_details,
+                        soft_deleted_at=project_data["soft_deleted_at"],
+                    )
+                )
+
+        return UserProjectsResponse(
+            projects=projects_response,
+            total_pages=total_pages,
+            total_items=total_items,
+        )
+
+    except Exception as e:
+        import traceback
+        logger.error(f"Error in list_user_projects: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal error: {str(e)}",
+        )
 
 
 @project_router.get(

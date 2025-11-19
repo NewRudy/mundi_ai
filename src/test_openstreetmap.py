@@ -17,7 +17,7 @@ import pytest
 import os
 import aiohttp
 from unittest.mock import patch
-from src.structures import async_conn
+from src.core.connection_wrapper import get_async_db_connection
 from openai.types.chat import (
     ChatCompletionMessage,
     ChatCompletionMessageToolCall,
@@ -73,7 +73,7 @@ async def test_download_from_openstreetmap_layers_created(
     test_map_id = map_data["id"]
     project_id = map_data["project_id"]
 
-    async with async_conn("test_check_osm_layers") as conn:
+    async with get_async_db_connection("test_check_osm_layers") as conn:
         layers = await conn.fetch(
             "SELECT layer_id, name, type, metadata FROM map_layers WHERE source_map_id = $1 AND name LIKE 'lifeguard_%' ORDER BY created_on DESC LIMIT 2",
             test_map_id,
@@ -214,7 +214,7 @@ async def test_download_from_openstreetmap_layers_created(
                     assert msg10["role"] == "assistant"
                     assert "Ok downloaded" in msg10["content"]
 
-    async with async_conn("test_check_osm_layers") as conn:
+    async with get_async_db_connection("test_check_osm_layers") as conn:
         layers = await conn.fetch(
             "SELECT layer_id, name, type, metadata FROM map_layers WHERE source_map_id = $1 AND name LIKE 'lifeguard_%' ORDER BY created_on DESC LIMIT 2",
             test_map_id,

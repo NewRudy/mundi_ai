@@ -1,9 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cat:*)",
-      "Bash(find:*)",
-      "WebSearch"
+      "Bash(python3 -c:*)",
+      "Bash(docker kill mundi-app)",
+      "Bash(docker-compose build app --no-cache:*)",
+      "Bash(docker-compose:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

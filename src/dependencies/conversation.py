@@ -16,7 +16,7 @@
 from fastapi import HTTPException, Depends, Path
 from src.dependencies.session import UserContext, verify_session_required
 from src.database.models import Conversation
-from src.structures import async_conn
+from src.core.connection_wrapper import get_async_db_connection
 
 
 async def get_conversation(
@@ -25,7 +25,7 @@ async def get_conversation(
 ) -> Conversation:
     user_id = session.get_user_id()
 
-    async with async_conn("get_conversation") as conn:
+    async with get_async_db_connection("get_conversation") as conn:
         conversation = await conn.fetchrow(
             """
             SELECT id, project_id, owner_uuid, title, created_at, updated_at, soft_deleted_at
@@ -56,7 +56,7 @@ async def get_or_create_conversation(
 ) -> Conversation:
     user_id = session.get_user_id()
 
-    async with async_conn("get_or_create_conversation") as conn:
+    async with get_async_db_connection("get_or_create_conversation") as conn:
         # Handle NEW conversation creation
         if conversation_id == "NEW":
             # Get project_id from map

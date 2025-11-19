@@ -56,10 +56,10 @@ from src.routes.layer_router import (
     SetStyleRequest,
 )
 from src.structures import (
-    async_conn,
     SanitizedMessage,
     convert_mundi_message_to_sanitized,
 )
+from src.core.connection_wrapper import get_async_db_connection
 from src.utils import get_openai_client
 from src.routes.postgres_routes import (
     generate_id,
@@ -107,6 +107,8 @@ from src.dependencies.pydantic_tools import (
     get_pydantic_tool_calls,
     PydanticToolRegistry,
 )
+# 安全补丁导入
+from src.security.postgis_security_patch import secure_process_postgis_layer
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
@@ -122,7 +124,7 @@ redis = Redis(
 async def label_conversation_inline(conversation_id: int):
     """Generate a title for a conversation using OpenAI"""
     try:
-        async with async_conn("label_conversation") as conn:
+        async with get_async_db_connection("label_conversation") as conn:
             messages = await conn.fetch(
                 """
                 SELECT message_json
@@ -203,7 +205,7 @@ async def get_all_conversation_messages(
     conversation_id: int,
     session: UserContext,
 ) -> List[MundiChatCompletionMessage]:
-    async with async_conn("get_all_conversation_messages") as conn:
+    async with get_async_db_connection("get_all_conversation_messages") as conn:
         db_messages = await conn.fetch(
             """
             SELECT ccm.*
@@ -278,7 +280,7 @@ async def get_map_tree(
 
     # TODO: if you add a message to a previous map, it interrupts the chain.
     # adding a message should be considered creating a new node in the DAG...
-    async with async_conn("describe_map_tree") as conn:
+    async with get_async_db_connection("describe_map_tree") as conn:
         # Collect all map IDs in the parent chain
         map_ids: list[str] = []
         current_map_id: str | None = leaf_map_id
@@ -695,7 +697,7 @@ async def process_chat_interaction_task(
     # kick it off with a quick sleep, to detach from the event loop blocking /send
     await asyncio.sleep(0.1)
 
-    async with async_conn("process_chat_interaction_task") as conn:
+    async with get_async_db_connection("process_chat_interaction_task") as conn:
 
         async def add_chat_completion_message(
             message: Union[ChatCompletionMessage, ChatCompletionMessageParam],
@@ -981,7 +983,7 @@ async def process_chat_interaction_task(
                     break
 
                 # Fetch project_id for this map once for all tool calls
-                async with async_conn("tool.project_id_for_map") as proj_conn:
+                async with get_async_db_connection("tool.project_id_for_map") as proj_conn:
                     row = await proj_conn.fetchrow(
                         "SELECT project_id FROM user_mundiai_maps WHERE id = $1",
                         map_id,
@@ -1832,7 +1834,7 @@ async def send_map_message(
         current_messages, description_text, body.selected_feature
     )
 
-    async with async_conn("send_map_message.update_messages") as conn:
+    async with get_async_db_connection("send_map_message.update_messages") as conn:
         # Add any generated system messages to the database
         for system_msg in system_messages:
             system_message = ChatCompletionSystemMessageParam(
@@ -1919,7 +1921,7 @@ async def cancel_map_message(
     map_id: str,
     session: UserContext = Depends(verify_session_required),
 ):
-    async with async_conn("cancel_map_message") as conn:
+    async with get_async_db_connection("cancel_map_message") as conn:
         # Authenticate and check map
         map_result = await conn.fetchrow(
             "SELECT owner_uuid FROM user_mundiai_maps WHERE id = $1 AND soft_deleted_at IS NULL",

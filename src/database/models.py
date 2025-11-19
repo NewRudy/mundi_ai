@@ -236,7 +236,7 @@ class MapLayer(Base):
             never_return_local_file: If True, return presigned URLs for S3 instead of downloading
         """
 
-        from src.structures import async_conn
+        from src.core.connection_wrapper import get_async_db_connection
         from src.utils import get_async_s3_client, get_bucket_name
 
         @asynccontextmanager
@@ -247,7 +247,7 @@ class MapLayer(Base):
                         f"PostGIS layer {self.layer_id} missing connection_id or query"
                     )
 
-                async with async_conn("get_ogr_source_postgis") as conn:
+                async with get_async_db_connection("get_ogr_source_postgis") as conn:
                     connection_result = await conn.fetchrow(
                         """
                         SELECT connection_uri FROM project_postgres_connections

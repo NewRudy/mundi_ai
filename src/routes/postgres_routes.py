@@ -54,6 +54,10 @@ from starlette.responses import (
 )
 import asyncio
 from boto3.s3.transfer import TransferConfig
+import re
+# 安全补丁
+from src.security.minimal_patch import sanitize_identifier
+from src.security.minimal_patch import validate_identifier, apply_minimal_security, check_dangerous_functions, detect_injection_risk
 from src.utils import (
     get_bucket_name,
     process_zip_with_shapefile,
@@ -980,7 +984,7 @@ async def get_map_style_internal(
     basemap: Optional[str] = None,
 ):
     # Get vector layers for this map from the database
-    async with async_conn("get_map_style_internal.fetch_layers") as conn:
+    async with get_async_db_connection("get_map_style_internal.fetch_layers") as conn:
         # Get layers and basemap from the map
         map_result = await conn.fetchrow(
             """
@@ -1339,8 +1343,34 @@ async def internal_upload_layer(
 
         # Generate a unique filename for the uploaded file
         filename = file.filename
+
+        # 安全补丁：清理文件名 - 防止路径遍历攻击
+        if not filename or len(filename) > 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="无效的文件名"
+            )
+
+        # 只取文件名，移除路径
+        filename = os.path.basename(filename)
+
+        # 验证文件名中的字符 - 只允许字母数字、下划线、点和连字符
+        if not re.match(r'^[\w\-\.]+$', filename):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="文件名包含非法字符"
+            )
+
         file_basename, file_ext = os.path.splitext(filename)
         file_ext = file_ext.lower()
+
+        # 安全补丁：验证扩展名
+        allowed_extensions = {'.geojson', '.json', '.kml', '.kmz', '.shp', '.tif', '.tiff', '.jpg', '.jpeg', '.png', '.csv'}
+        if file_ext not in allowed_extensions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"不允许的文件类型: {file_ext}"
+            )
 
         # If layer_name is not provided, use the filename without extension
         if not layer_name:
@@ -2697,7 +2727,7 @@ async def update_map(
     if update_data.basemap is None:
         return {"message": "No basemap update provided"}
 
-    async with async_conn("update_map") as conn:
+    async with get_async_db_connection("update_map") as conn:
         updated_map = await conn.fetchrow(
             """
             UPDATE user_mundiai_maps

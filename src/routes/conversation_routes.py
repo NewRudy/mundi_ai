@@ -23,10 +23,10 @@ from src.dependencies.session import UserContext, verify_session_required
 from src.dependencies.conversation import get_conversation
 from src.database.models import Conversation, MundiChatCompletionMessage
 from src.structures import (
-    async_conn,
     SanitizedMessage,
     convert_mundi_message_to_sanitized,
 )
+from src.core.connection_wrapper import get_async_db_connection
 
 router = APIRouter()
 
@@ -52,7 +52,7 @@ async def create_conversation(
     session: UserContext = Depends(verify_session_required),
 ):
     user_id = session.get_user_id()
-    async with async_conn("create_conversation") as conn:
+    async with get_async_db_connection("create_conversation") as conn:
         project_row = await conn.fetchrow(
             """
             SELECT id
@@ -98,7 +98,7 @@ async def list_conversations(
     """List all conversations for the current user in a specific project"""
     user_id = session.get_user_id()
 
-    async with async_conn("list_conversations") as conn:
+    async with get_async_db_connection("list_conversations") as conn:
         rows = await conn.fetch(
             """
             SELECT c.id, c.project_id, c.owner_uuid, c.title, c.created_at, c.updated_at,
@@ -140,7 +140,7 @@ async def get_conversation_messages(
     conversation: Conversation = Depends(get_conversation),
 ):
     """Get all messages in a conversation"""
-    async with async_conn("get_conversation_messages") as conn:
+    async with get_async_db_connection("get_conversation_messages") as conn:
         rows = await conn.fetch(
             """
             SELECT id, conversation_id, map_id, sender_id, message_json, created_at

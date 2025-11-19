@@ -22,6 +22,7 @@ import KgSchemaManager from './pages/KgSchemaManager';
 import KgInstanceImport from './pages/KgInstanceImport';
 import KgSpatialRelations from './pages/KgSpatialRelations';
 import KgConnections from './pages/KgConnections';
+import HydroDemo from './pages/HydroDemo';
 import { Routes as EERoutes, OptionalAuth, Provider, RequireAuth } from '@mundi/ee';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Suspense } from 'react';
@@ -140,6 +141,16 @@ function AppContent() {
                 <RequireAuth>
                   <KgConnections />
                 </RequireAuth>
+              }
+            />
+
+            {/* Hydro专业场景演示 */}
+            <Route
+              path="/hydro-demo"
+              element={
+                <OptionalAuth>
+                  <HydroDemo />
+                </OptionalAuth>
               }
             />
 

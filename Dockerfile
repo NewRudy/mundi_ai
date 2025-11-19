@@ -112,20 +112,34 @@ RUN python3 -m venv /app/.venv \
 
 # frontend app
 FROM ${NODE_IMAGE} AS frontend-builder
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app/frontendts
 COPY frontendts/package*.json ./
-# Configure npm mirror and timeouts for reliable install
-RUN npm config set registry https://registry.npmmirror.com \
+RUN npm cache clean --force \
+    && npm config set registry https://registry.npmjs.org \
     && npm config set fetch-retries 5 \
     && npm config set fetch-timeout 600000 \
     && npm config set fetch-retry-maxtimeout 120000 \
-    && npm config set strict-ssl false
-RUN --mount=type=cache,target=/root/.npm npm ci --legacy-peer-deps --registry=https://registry.npmmirror.com --no-audit --no-fund
+    && npm config set strict-ssl true \
+    && npm install --legacy-peer-deps --registry=https://registry.npmjs.org --no-audit --no-fund
 ARG VITE_WEBSITE_DOMAIN
 COPY frontendts/ ./
 ENV VITE_WEBSITE_DOMAIN=$VITE_WEBSITE_DOMAIN \
     NODE_OPTIONS=--max-old-space-size=4096
-RUN npm run build
+# Fix platform-specific dependencies for Linux x64
+# Install Rollup, LightningCSS and TailwindCSS Oxide Linux platform binaries
+RUN npm install \
+    @rollup/rollup-linux-x64-gnu \
+    lightningcss-linux-x64-gnu \
+    @tailwindcss/oxide-linux-x64-gnu \
+    --no-save --force && \
+    # Verification: Check if @deck.gl/react is installed
+    echo "=== Verifying @deck.gl/react installation ===" && \
+    ls -la node_modules/@deck.gl/ || (echo "ERROR: @deck.gl not found!" && exit 1) && \
+    ls -la node_modules/@deck.gl/react/ || (echo "ERROR: @deck.gl/react not found!" && exit 1) && \
+    echo "✅ @deck.gl/react found successfully" && \
+    npm run build
 
 # LAStools
 FROM base AS lastools-builder
@@ -177,6 +191,9 @@ COPY --from=lastools-builder /usr/local/bin/lasinfo64 /usr/local/bin/lasinfo64
 # Copy application files
 COPY . /app/
 COPY --from=frontend-builder /app/frontendts/dist /app/frontendts/dist
+
+# Copy Cesium static resources for 3D visualization
+COPY --from=frontend-builder /app/frontendts/node_modules/cesium/Build/Cesium /app/frontendts/dist/cesium
 
 # Setup environment
 ENV DISPLAY=:99 \

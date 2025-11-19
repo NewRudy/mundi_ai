@@ -5,7 +5,7 @@ from typing import Any, Dict, List
 from pydantic import BaseModel, Field
 
 from src.tools.pyd import AnwayToolCallMetaArgs
-from src.structures import async_conn
+from src.core.connection_wrapper import get_async_db_connection
 from src.routes.websocket import kue_ephemeral_action
 
 
@@ -23,7 +23,7 @@ async def summarize_situation(
 ) -> Dict[str, Any]:
     """Summarize current map layers without new queries/migrations."""
     async with kue_ephemeral_action(mundi.conversation_id, "汇总态势…"):
-        async with async_conn("situation.summary") as conn:
+        async with get_async_db_connection("situation.summary") as conn:
             rows = await conn.fetch(
                 """
                 SELECT ml.layer_id, ml.name, ml.type, ml.geometry_type, ml.feature_count

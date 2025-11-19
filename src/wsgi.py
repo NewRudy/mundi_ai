@@ -25,6 +25,10 @@ from src.routes import (
     message_routes,
     websocket,
     conversation_routes,
+    hydropower_routes,  # 新增：水电专业路由
+    # orchestrator_routes,  # 核心架构层路由 (禁用：依赖不可用)
+    # data_connector_routes,  # 数据连接器路由 (禁用：依赖不可用)
+    # advanced_viz_routes,  # 高级可视化路由 (禁用：依赖不可用)
 )
 from src.routes.postgres_routes import basemap_router
 from src.routes.layer_router import layer_router
@@ -39,7 +43,13 @@ async def lifespan(app: FastAPI):
     """Run database migrations and initialize Neo4j on startup"""
     from src.database.migrate import run_migrations
     from src.dependencies.neo4j_connection import init_neo4j, cleanup_neo4j
+    from src.core.connection_wrapper import migrate_to_new_pool
+    import os
 
+    # 初始化连接池 - 根治连接池癌症
+    await migrate_to_new_pool()
+
+    # 运行数据库迁移
     await run_migrations()
     await init_neo4j()
     yield
@@ -107,6 +117,29 @@ app.include_router(
     prefix="/api/kg",
     tags=["Knowledge Graph"],
 )
+app.include_router(
+    hydropower_routes.router,
+    prefix="/api/hydropower",
+    tags=["Hydropower"],
+)
+# 新增路由：核心架构层 (禁用：依赖不可用)
+# app.include_router(
+#     orchestrator_routes.router,
+#     prefix="/api/orchestrator",
+#     tags=["Orchestrator"],
+# )
+# # 新增路由：数据连接器层 (禁用：依赖不可用)
+# app.include_router(
+#     data_connector_routes.router,
+#     prefix="/api/data",
+#     tags=["Data Connectors"],
+# )
+# # 新增路由：高级可视化层 (禁用：依赖不可用)
+# app.include_router(
+#     advanced_viz_routes.router,
+#     prefix="/api/advanced-viz",
+#     tags=["Advanced Visualization"],
+# )
 
 
 # TODO: this isn't useful right now. But we should work on it in the future

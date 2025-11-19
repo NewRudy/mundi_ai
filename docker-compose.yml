@@ -53,7 +53,7 @@ services:
       - POSTGIS_LOCALHOST_POLICY=docker_rewrite
 
       - OPENAI_BASE_URL=https://api-inference.modelscope.cn/v1
-      - OPENAI_API_KEY=ms-c3959c5b-79f7-4303-b8b6-bc779e945ead
+      - OPENAI_API_KEY=ms-4efc098c-2205-4a94-a2e3-44a490024ebf
       - OPENAI_MODEL=ZhipuAI/GLM-4.6
 
       # - OPENAI_BASE_URL=https://api.siliconflow.cn

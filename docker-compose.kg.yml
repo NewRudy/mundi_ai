@@ -1,0 +1,148 @@
+# 松耦合KG服务独立部署配置
+# 这个配置文件将KG服务作为独立的微服务运行
+
+version: '3.8'
+
+services:
+  # 事件总线 - Redis
+  kg-event-bus:
+    container_name: mundi-kg-event-bus
+    image: redis:7-alpine
+    ports:
+      - '6380:6379'  # 独立的Redis实例，避免与主服务冲突
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - ./data/kg-redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - kg-network
+
+  # KG服务 - 独立微服务
+  kg-service:
+    container_name: mundi-kg-service
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: Dockerfile.kg-service  # 专用的KG服务Dockerfile
+      args:
+        - SERVICE_NAME=kg-service
+    ports:
+      - '8001:8000'  # 独立端口
+    depends_on:
+      kg-event-bus:
+        condition: service_healthy
+      kg-neo4j:
+        condition: service_healthy
+    environment:
+      # 服务配置
+      - SERVICE_NAME=kg-service
+      - SERVICE_VERSION=1.0.0
+      - LOG_LEVEL=INFO
+
+      # Neo4j配置 - 独立实例
+      - NEO4J_HOST=kg-neo4j
+      - NEO4J_PORT=7687
+      - NEO4J_USER=neo4j
+      - NEO4J_PASSWORD=kg-neo4j-password
+      - NEO4J_DB=kgdb
+
+      # Redis事件总线
+      - REDIS_HOST=kg-event-bus
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+
+      # PostgreSQL连接（只读）
+      - POSTGRES_HOST=postgresdb
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=mundidb
+      - POSTGRES_USER=mundiuser
+      - POSTGRES_PASSWORD=gdalpassword
+
+      # 服务发现
+      - API_GATEWAY_URL=http://app:8000
+      - HYDRO_SERVICE_URL=http://app:8000
+
+      # 性能配置
+      - WORKERS=2
+      - MAX_REQUESTS=1000
+      - TIMEOUT=30
+
+    volumes:
+      - ./kg-service/src:/app/src
+      - ./kg-service/config:/app/config
+      - ./docs:/app/docs
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:8000/health']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - kg-network
+      - app-network  # 允许与主应用通信
+    restart: unless-stopped
+
+  # KG专用Neo4j数据库
+  kg-neo4j:
+    container_name: mundi-kg-neo4j
+    image: neo4j:5.26.8-enterprise  # 企业版支持更多功能
+    ports:
+      - '7475:7474'  # HTTP端口（避免冲突）
+      - '7688:7687'  # Bolt端口（避免冲突）
+    environment:
+      - NEO4J_AUTH=neo4j/kg-neo4j-password
+      - NEO4J_DBMS_DEFAULT_DATABASE=kgdb
+      - NEO4J_PLUGINS=["apoc", "graph-data-science"]
+      - NEO4J_dbms_security_procedures_unrestricted=apoc.*,gds.*
+      - NEO4J_dbms_security_procedures_allowlist=apoc.*,gds.*
+      - NEO4J_dbms_memory_heap_initial__size=512m
+      - NEO4J_dbms_memory_heap_max__size=1g
+      - NEO4J_dbms_memory_pagecache_size=512m
+    volumes:
+      - ./data/kg-neo4j:/data
+      - ./data/kg-neo4j-logs:/logs
+      - ./kg-service/neo4j/plugins:/plugins
+    healthcheck:
+      test: ['CMD', 'cypher-shell', '-u', 'neo4j', '-p', 'kg-neo4j-password', 'MATCH (n) RETURN count(n) LIMIT 1']
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - kg-network
+    restart: unless-stopped
+
+  # KG API网关（可选，用于负载均衡）
+  kg-api-gateway:
+    container_name: mundi-kg-api-gateway
+    image: nginx:alpine
+    ports:
+      - '8002:80'  # KG服务统一入口
+    volumes:
+      - ./kg-service/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - kg-service
+    networks:
+      - kg-network
+      - app-network
+    restart: unless-stopped
+
+networks:
+  kg-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+  app-network:
+    external: true  # 使用主应用的网络
+    name: mundi-ai_app-network
+
+volumes:
+  kg-neo4j-data:
+  kg-neo4j-logs:
+  kg-redis-data:
